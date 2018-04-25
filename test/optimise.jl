@@ -1,3 +1,4 @@
+using Flux
 using Flux.Optimise
 using Flux.Tracker
 
@@ -27,3 +28,14 @@ end
 
   @test 3 < i < 50
 end
+
+using Base.Threads
+
+makedataset() = (hcat(randn(4,50),randn(4,50).+3),vcat(ones(50),2ones(50)))
+
+model = Chain(Dense(4,2),softmax)
+loss(f,ds) = Flux.crossentropy(f(ds[1]),Flux.onehotbatch(ds[2],1:2))
+
+data = Iterators.repeated([makedataset() for i in 1:nthreads()],100)
+opt = Flux.Optimise.ADAM(params(model))
+Flux.Optimise.train_threaded(model,loss,data,opt;cb = () -> ())
