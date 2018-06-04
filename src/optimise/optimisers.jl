@@ -23,6 +23,27 @@ function nesterov(p::Param, ρ, η)
   end
 end
 
+"""
+    Spectral norm regularization as proposed in 
+    Spectral Norm Regularization for Improving the Generalizability of Deep Learning, Yuichi Yoshida, Takeru Miyato, 2017
+    https://arxiv.org/pdf/1705.10941.pdf
+"""
+function spectral(p::Param, λ::Real)
+  n,m = size(p.x)
+  u = similar(p.x,n)
+  u .= randn(n)
+  v = similar(p.x,m)
+  v .= randn(m)
+  function ()
+    u .= p.x * v
+    v .= (u' * p.x )'
+    σ = norm(v)/norm(u)
+    v ./=norm(v)
+    u ./=norm(u)
+    p.Δ .+= λ*σ*u*v'
+  end
+end
+
 function rmsprop(p::Param; η::Real = 0.001, ρ::Real = 0.9, ϵ::Real = 1e-8)
   acc  = zeros(p.x)
   function ()
