@@ -198,3 +198,114 @@ See [this article](http://colah.github.io/posts/2015-08-Understanding-LSTMs/)
 for a good overview of the internals.
 """
 GRU(a...; ka...) = Recur(GRUCell(a...; ka...))
+
+# peephole LSTM
+
+mutable struct PeepholeLSTMCell{A,V}
+  Wx::A
+  Wc::A
+  b::V
+  h::V
+  c::V
+end
+
+function PeepholeLSTMCell(in::Integer, out::Integer;
+                          init = glorot_uniform)
+  cell = PeepholeLSTMCell(
+      param(init(out*4, in)),  # Wx
+      param(init(out*4, out)), # Wc
+      param(zeros(out*4)),     # b
+      param(init(out)),        # h
+      param(init(out)))        # c
+  cell.b.data[gate(out, 2)] .= 1
+  return cell
+end
+
+function (m::PeepholeLSTMCell)((h, c), x)
+  o = size(h, 1)
+  g = m.Wx*x .+ m.Wc*c .+ m.b
+  input = σ.(gate(g, o, 1))
+  forget = σ.(gate(g, o, 2))
+  cell = tanh.(gate(g, o, 3))
+  output = σ.(gate(g, o, 4))
+  c = forget .* c .+ input .* cell
+  h = output .* tanh.(c)
+  return (h, c), h
+end
+
+hidden(m::PeepholeLSTMCell) = (m.h, m.c)
+
+@treelike PeepholeLSTMCell
+
+Base.show(io::IO, l::PeepholeLSTMCell) =
+  print(io, "PeepholeLSTMCell(", size(l.Wx, 2), ", ", size(l.Wx, 1) ÷ 4, ")")
+
+"""
+    PLSTM(in::Integer, out::Integer)
+
+Peephole LSTM layer. Behaves like an LSTM, but instead of using the hidden state
+`h`, the LSTM cell gets direct access to the hidden cell state `c`.
+
+See the following articles for internals:
+
+* [Gers, F. A.; Schmidhuber, J. (2001). "LSTM Recurrent Networks Learn Simple Context Free and Context Sensitive Languages". IEEE Transactions on Neural Networks. 12 (6): 1333–1340. doi:10.1109/72.963769.](ftp://ftp.idsia.ch/pub/juergen/L-IEEE.pdf)
+* [Gers, Felix & Schraudolph, Nicol & Schmidhuber, Jürgen. (2002). "Learning Precise Timing with LSTM Recurrent Networks". Journal of Machine Learning Research. 3. 115-143.](http://www.jmlr.org/papers/volume3/gers02a/gers02a.pdf)
+"""
+PLSTM(a...; ka...) = Recur(PeepholeLSTMCell(a...; ka...))
+
+
+# fully connected LSTM
+
+mutable struct FullyConnectedLSTMCell{A,V}
+  Wx::A
+  Wh::A
+  Wc::A
+  b::V
+  h::V
+  c::V
+end
+
+function FullyConnectedLSTMCell(in::Integer, out::Integer;
+                                init = glorot_uniform)
+  cell = FullyConnectedLSTMCell(
+      param(init(out*4, in)),  # Wx
+      param(init(out*4, out)), # Wh
+      param(init(out*4, out)), # Wc
+      param(zeros(out*4)),     # b
+      param(init(out)),        # h
+      param(init(out)))        # c
+  cell.b.data[gate(out, 2)] .= 1
+  return cell
+end
+
+function (m::FullyConnectedLSTMCell)((h, c), x)
+  o = size(h, 1)
+  g = m.Wx*x .+ m.Wh*h .+ m.Wc*c .+ m.b
+  input = σ.(gate(g, o, 1))
+  forget = σ.(gate(g, o, 2))
+  cell = tanh.(gate(g, o, 3))
+  output = σ.(gate(g, o, 4))
+  c = forget .* c .+ input .* cell
+  h = output .* tanh.(c)
+  return (h, c), h
+end
+
+hidden(m::FullyConnectedLSTMCell) = (m.h, m.c)
+
+@treelike FullyConnectedLSTMCell
+
+Base.show(io::IO, l::FullyConnectedLSTMCell) =
+  print(io, "FullyConnectedLSTMCell(", size(l.Wx, 2), ", ", size(l.Wx, 1) ÷ 4, ")")
+
+"""
+    FCLSTM(in::Integer, out::Integer)
+
+A *fully connected* LSTM layer. Behaves like an LSTM, but instead of only using 
+the hidden state `h`, the cell gets also direct access to the cell state `c`.
+
+See the following article for internals:
+
+* [Generating Sequences WithRecurrent Neural Networks](https://arxiv.org/pdf/1308.0850.pdf)
+
+"""
+FCLSTM(a...; ka...) = Recur(FullyConnectedLSTMCell(a...; ka...))
