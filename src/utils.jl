@@ -98,6 +98,37 @@ function batchseq(xs, pad = nothing, n = maximum(length(x) for x in xs))
   [batch([xs_[j][i] for j = 1:length(xs_)]) for i = 1:n]
 end
 
+# Parameterization
+"""
+Takes a model and returns a vector of its parameters and a function which
+reparameterizes a vector of the same size producing a new model with these
+parameters.
+"""
+function destructure(m)
+  ps = []
+  mapleaves(m) do p
+    p isa TrackedArray && push!(ps, p)
+    return p
+  end
+  ps_vec = vcat(vec.(ps)...)
+  return ps_vec, ps_new->restructure(m,ps_new; len=length(ps_vec))
+end
+
+"""
+Takes a model `m` and a vector of parameters `ps` and returns a new model like
+`m` parameterized by `ps`.
+"""
+function restructure(m, ps; len = length(ps))
+    @assert length(ps) == len
+    i = 0
+  mapleaves(m) do p
+    p isa TrackedArray || return p #TODO: should this be robust to restructuring with untracked?
+    p = reshape(ps[i.+(1:length(p))], size(p))
+    i += length(p)
+    return p
+  end
+end
+
 # Other
 
 """

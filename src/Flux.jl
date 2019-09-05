@@ -9,6 +9,7 @@ using MacroTools: @forward
 export Chain, Dense, Maxout, RNN, LSTM, GRU, Conv, CrossCor, ConvTranspose, MaxPool, MeanPool,
        DepthwiseConv, Dropout, AlphaDropout, LayerNorm, BatchNorm, InstanceNorm, GroupNorm,
        SkipConnection,
+       HyperNet, HyperDense,
        params, mapleaves, cpu, gpu, f32, f64
 
 @reexport using NNlib
@@ -46,6 +47,7 @@ include("layers/basic.jl")
 include("layers/conv.jl")
 include("layers/recurrent.jl")
 include("layers/normalise.jl")
+include("layers/hypernet.jl")
 
 include("data/Data.jl")
 

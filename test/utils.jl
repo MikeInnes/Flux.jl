@@ -1,5 +1,6 @@
 using Flux
 using Flux: throttle, jacobian, glorot_uniform, glorot_normal, stack, unstack
+using Flux: destructure
 using StatsBase: std
 using Random
 using Test
@@ -120,4 +121,41 @@ end
   @test unstack(stacked_array, 2) == unstacked_array
   @test stack(unstacked_array, 2) == stacked_array
   @test stack(unstack(stacked_array, 1), 1) == stacked_array
+end
+
+
+@testset "De/Re-Structuring" begin
+    #Single Dense Layer
+    m_orig = Dense(1,2)
+    ps, re = destructure(m_orig)
+    m_reparamed = re(ps)
+    ps_new = param(randn!(similar(ps))) # needs param o/w no restructure...
+    m2=re(ps_new)
+    @test destructure(m_orig)[1] == destructure(m_reparamed)[1]
+    @test destructure(m2)[1] == ps_new
+    # Chain
+    m_orig = Chain(Dense(10,2,tanh),Dense(2,4))
+    ps, re = destructure(m_orig)
+    m_reparamed = re(ps)
+    ps_new = param(randn!(similar(ps))) # needs param o/w no restructure...
+    m2=re(ps_new)
+    @test destructure(m_orig)[1] == destructure(m_reparamed)[1]
+    @test destructure(m2)[1] == ps_new
+end
+
+@testset "Wrong length ps" begin
+    #Single Dense Layer
+    m_orig = Dense(1,2)
+    ps, re = destructure(m_orig)
+    m_reparamed = re([ps;ps])
+end
+
+@testset "Restructure with Untracked" begin
+    m = Dense(2,3)
+    ps, re = destructure(m)
+    m2 = re(Flux.data(ps))
+    ps2,_ = destructure(m2)
+    println(ps)
+    println(ps2)
+    @test_broken ps == ps2
 end
