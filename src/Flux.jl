@@ -17,7 +17,7 @@ include("optimise/Optimise.jl")
 using .Optimise
 using .Optimise: @epochs
 export SGD, Descent, ADAM, Momentum, Nesterov, RMSProp,
-  ADAGrad, AdaMax, ADADelta, AMSGrad, NADAM,
+  ADAGrad, AdaMax, ADADelta, AMSGrad, NADAM, Lookahead,
   ADAMW, RADAM, InvDecay, ExpDecay, WeightDecay
 
 

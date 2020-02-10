@@ -7,7 +7,7 @@ using Test
   w = randn(10, 10)
   @testset for opt in [ADAMW(), ADAGrad(0.1), AdaMax(), ADADelta(0.9), AMSGrad(),
                        NADAM(), RADAM(), Descent(0.1), ADAM(), Nesterov(), RMSProp(),
-                       Momentum()]
+                       Momentum(), Lookahead(RADAM()), Lookahead(ADAMW()), Lookahead(Momentum(), 0.8, 3, Optimise.pullback_momentum_handler!)]
     w′ = randn(10, 10)
     loss(x) = Flux.mse(w*x, w′*x)
     for t = 1: 10^5
