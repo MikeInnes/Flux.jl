@@ -55,6 +55,13 @@ function stop()
   throw(StopException())
 end
 
+function step!(loss, ps, minibatch, opt)
+  gs = gradient(ps) do
+    loss(minibatch...)
+  end
+  update!(opt, ps, gs)
+end
+
 """
     train!(loss, params, data, opt; cb)
 
@@ -78,10 +85,11 @@ function train!(loss, ps, data, opt; cb = () -> ())
   cb = runall(cb)
   @progress for d in data
     try
-      gs = gradient(ps) do
-        loss(d...)
-      end
-      update!(opt, ps, gs)
+      # gs = gradient(ps) do
+      #   loss(d...)
+      # end
+      # update!(opt, ps, gs)
+      step!(loss, ps, d, opt)
       cb()
     catch ex
       if ex isa StopException
