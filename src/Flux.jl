@@ -29,6 +29,7 @@ const use_cuda = Ref(false)
 include("utils.jl")
 include("onehot.jl")
 include("functor.jl")
+include("callbacks.jl")
 
 include("layers/stateless.jl")
 include("layers/basic.jl")
