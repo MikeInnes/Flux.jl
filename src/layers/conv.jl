@@ -8,25 +8,56 @@ _convtransoutdims(isize, ksize, ssize, dsize, pad) = (isize .- 1).*ssize .+ 1 .+
 expand(N, i::Tuple) = i
 expand(N, i::Integer) = ntuple(_ -> i, N)
 
-"""
-    SamePad
+calc_padding(pad, k::NTuple{N,T}, dilation, stride) where {T,N} = expand(Val(2*N), pad)
 
-Padding for convolutional layers will be calculated so that outputshape == inputshape when stride = 1.
-
-For stride > 1 the output shape depends on the type of convolution layer.
-"""
-struct SamePad end
-
-calc_padding(pad, k::NTuple{N,T}, dilation, stride) where {T,N}= expand(Val(2*N), pad)
-function calc_padding(::SamePad, k::NTuple{N,T}, dilation, stride) where {N,T}
+function calc_padding(pad::AbstractString, k::NTuple{N,T}, dilation, stride) where {N,T}
   #Ref: "A guide to convolution arithmetic for deep learning" https://arxiv.org/pdf/1603.07285
 
   # Effective kernel size, including dilation
   k_eff = @. k + (k - 1) * (dilation - 1)
-  # How much total padding needs to be applied?
-  pad_amt = @. k_eff - 1
-  # In case amount of padding is odd we need to apply different amounts to each side.
-  return Tuple(mapfoldl(i -> [ceil(Int, i/2), floor(Int, i/2)], vcat, pad_amt))
+  if pad == "same"
+    # Padding for convolutional layers will be calculated so that outputshape == inputshape when stride = 1.
+    # For stride > 1 the output shape depends on the type of convolution layer.
+    # In case amount of padding is odd we need to apply different amounts to each side.
+    ntuple(Val(2*N)) do d
+      p = k_eff[(d + 1) ÷ 2] - 1
+      isodd(d) ? ceil(Int, p / 2) : p ÷ 2
+    end
+  elseif pad == "causal"
+    @assert length(k) == 1
+    ntuple(Val(2*N)) do d
+      p = k_eff[(d + 1) ÷ 2] - 1
+      isodd(d) ? p : 0 
+    end
+  elseif pad == "valid"
+    expand(Val(2*N), 0)
+  end
+end
+
+need_manual_padding(x, pad) = x isa CuArrays.CuArray && pad[1:2:end] != pad[2:2:end]
+
+@nograd need_manual_padding
+
+function _get_paddings(x, pad)
+  xl = fill!(similar(x, pad[1:2:end]..., size(x)[end-1:end]...), 0)
+  xr = fill!(similar(x, pad[2:2:end]..., size(x)[end-1:end]...), 0)
+  return xl, xr
+end
+
+@nograd _get_paddings
+
+function padding(x, pad::NTuple{N, Int}) where N
+  all(iszero, pad) && return x
+  if sum(pad) > 0
+    xl, xr = _get_paddings(x, pad)
+    cat(xl, x, xr, dims = 1:(N ÷ 2))
+  else
+    ids = ntuple(Val(N ÷ 2)) do d
+      l, r = pad[2d - 1], pad[2d]
+      (1 - l):(size(x, d) + r)
+    end
+    x[ids..., :, :]
+  end
 end
 
 """
@@ -133,7 +164,12 @@ function (c::Conv)(x::AbstractArray)
   # TODO: breaks gpu broadcast :(
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
   σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
-  cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  if need_manual_padding(x, c.pad)
+    x = padding(x, c.pad)
+    cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=zero.(c.pad), dilation=c.dilation)
+  else
+    cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  end
   σ.(conv(x, c.weight, cdims) .+ b)
 end
 
@@ -229,16 +265,16 @@ end
 
 @functor ConvTranspose
 
-function conv_transpose_dims(c::ConvTranspose, x::AbstractArray)
+function conv_transpose_dims(c::ConvTranspose, x::AbstractArray; pad = c.pad)
     # Calculate size of "input", from ∇conv_data()'s perspective...
-    combined_pad = (c.pad[1:2:end] .+ c.pad[2:2:end])
+    combined_pad = (pad[1:2:end] .+ pad[2:2:end])
     I = (size(x)[1:end-2] .- 1).*c.stride .+ 1 .+ (size(c.weight)[1:end-2] .- 1).*c.dilation .- combined_pad
     C_in = size(c.weight)[end-1]
     batch_size = size(x)[end]
     # Create DenseConvDims() that looks like the corresponding conv()
     return DenseConvDims((I..., C_in, batch_size), size(c.weight);
                         stride=c.stride,
-                        padding=c.pad,
+                        padding=pad,
                         dilation=c.dilation,
     )
 end
@@ -249,8 +285,13 @@ end
 function (c::ConvTranspose)(x::AbstractArray)
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
   σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
-  cdims = conv_transpose_dims(c, x)
-  σ.(∇conv_data(x, c.weight, cdims) .+ b)
+  if need_manual_padding(x, c.pad)
+    cdims = conv_transpose_dims(c, x, pad = zero.(c.pad))
+    x = padding(σ.(∇conv_data(x, c.weight, cdims) .+ b), .-c.pad)
+  else
+    cdims = conv_transpose_dims(c, x)
+    σ.(∇conv_data(x, c.weight, cdims) .+ b)
+  end
 end
 
 function Base.show(io::IO, l::ConvTranspose)
@@ -356,7 +397,12 @@ end
 
 function (c::DepthwiseConv)(x)
   σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
-  cdims = DepthwiseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  if need_manual_padding(x, c.pad)
+    x = padding(x, c.pad)
+    cdims = DepthwiseConvDims(x, c.weight; stride=c.stride, padding=zero.(c.pad), dilation=c.dilation)
+  else
+    cdims = DepthwiseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  end
   σ.(depthwiseconv(x, c.weight, cdims) .+ b)
 end
 
@@ -460,7 +506,12 @@ function (c::CrossCor)(x::AbstractArray)
   # TODO: breaks gpu broadcast :(
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
   σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
-  cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  if need_manual_padding(x, c.pad)
+    x = padding(x, c.pad)
+    cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=zero.(c.pad), dilation=c.dilation)
+  else
+    cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
+  end
   σ.(crosscor(x, c.weight, cdims) .+ b)
 end
 
@@ -551,7 +602,12 @@ function MaxPool(k::NTuple{N,Integer}; pad = 0, stride = k) where N
 end
 
 function (m::MaxPool)(x)
-    pdims = PoolDims(x, m.k; padding=m.pad, stride=m.stride)
+    if need_manual_padding(x, m.pad)
+      x = padding(x, m.pad)
+      pdims = PoolDims(x, m.k; padding=zero.(m.pad), stride=m.stride)
+    else
+      pdims = PoolDims(x, m.k; padding=m.pad, stride=m.stride)
+    end
     return maxpool(x, pdims)
 end
 
@@ -581,7 +637,12 @@ function MeanPool(k::NTuple{N,Integer}; pad = 0, stride = k) where N
 end
 
 function (m::MeanPool)(x)
-    pdims = PoolDims(x, m.k; padding=m.pad, stride=m.stride)
+    if need_manual_padding(x, m.pad)
+      x = padding(x, m.pad)
+      pdims = PoolDims(x, m.k; padding=zero.(m.pad), stride=m.stride)
+    else
+      pdims = PoolDims(x, m.k; padding=m.pad, stride=m.stride)
+    end
     return meanpool(x, pdims)
 end
 
