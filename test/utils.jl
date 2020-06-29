@@ -1,5 +1,6 @@
 using Flux
-using Flux: throttle, nfan, glorot_uniform, glorot_normal, stack, unstack
+using Flux: throttle, nfan, glorot_uniform, glorot_normal, orthogonal, stack, unstack
+using LinearAlgebra
 using StatsBase: var
 using Random
 using Test
@@ -75,6 +76,13 @@ end
         σ2 = 2 / (fan_in + fan_out)
         @test 0.9σ2 < var(v) < 1.1σ2
       end
+    end
+  end
+
+  @testset "orthogonal" begin
+    for dims ∈ [(100,), (100, 100), (400, 100)]
+        v = orthogonal(dims...)[1:dims[end], :]
+        @test v' * v ≈ diagm(ones(dims[end]))
     end
   end
 end

@@ -37,6 +37,45 @@ julia> Flux.glorot_normal(3, 2)
 """
 glorot_normal(dims...) = randn(Float32, dims...) .* sqrt(2.0f0 / sum(nfan(dims...)))
 
+"""
+    orthogonal(dim)
+
+Return a random orthogonal maxtrix of size `(dim, dim)`. This is commonly used for kernel initialization of recurrent layers.
+
+# Examples
+```jldoctest; setup = :(using Random; Random.seed!(0))
+julia> Flux.orthogonal(2)
+2×2 Array{Float32,2}:
+ -0.633973  -0.773356
+ -0.773356   0.633973
+```
+
+See [Exact solutions to the nonlinear dynamics of learning in deep linear neural networks](http://arxiv.org/abs/1312.6120)
+"""
+orthogonal(dim) = orthogonal_matrix(dim, dim)
+
+function orthogonal(nrow, ncol)
+  @assert nrow >= ncol && nrow % ncol == 0
+  vcat([orthogonal(ncol) for n in 1:(nrow ÷ ncol)]...)
+end
+
+"""
+    orthogonal_matrix(nrow, ncol)
+
+If the shape of the matrix to initialize is two-dimensional, it is initialized
+with an orthogonal matrix obtained from the QR decomposition of a matrix of
+random numbers drawn from a normal distribution.
+If the matrix has fewer rows than columns then the output will have orthogonal
+rows. Otherwise, the output will have orthogonal columns.
+"""
+function orthogonal_matrix(nrow, ncol)
+  shape = reverse(minmax(nrow, ncol))
+  a = randn(Float32, shape)
+  q, r = qr(a)
+  q = Matrix(q) * diagm(sign.(diag(r)))
+  nrow < ncol ? permutedims(q) : q
+end
+
 ones(T::Type, dims...) = Base.ones(T, dims...)
 zeros(T::Type, dims...) = Base.zeros(T, dims...)
 

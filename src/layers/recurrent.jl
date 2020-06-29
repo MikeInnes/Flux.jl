@@ -67,10 +67,8 @@ mutable struct RNNCell{F,A,V}
   h::V
 end
 
-RNNCell(in::Integer, out::Integer, σ = tanh;
-        init = glorot_uniform) =
-  RNNCell(σ, init(out, in), init(out, out),
-          init(out), zeros(out))
+RNNCell(in::Integer, out::Integer, σ = tanh; init = glorot_uniform, kernel_init = glorot_uniform) =
+  RNNCell(σ, init(out, in), glorot_uniform(out, out), init(out), zeros(out))
 
 function (m::RNNCell)(h, x)
   σ, Wi, Wh, b = m.σ, m.Wi, m.Wh, m.b
@@ -106,10 +104,8 @@ mutable struct LSTMCell{A,V}
   c::V
 end
 
-function LSTMCell(in::Integer, out::Integer;
-                  init = glorot_uniform)
-  cell = LSTMCell(init(out * 4, in), init(out * 4, out), init(out * 4),
-                  zeros(out), zeros(out))
+function LSTMCell(in::Integer, out::Integer; init = glorot_uniform, kernel_init = glorot_uniform)
+  cell = LSTMCell(init(out * 4, in), kernel_init(out * 4, out), init(out * 4), zeros(out), zeros(out))
   cell.b[gate(out, 2)] .= 1
   return cell
 end
@@ -153,9 +149,8 @@ mutable struct GRUCell{A,V}
   h::V
 end
 
-GRUCell(in, out; init = glorot_uniform) =
-  GRUCell(init(out * 3, in), init(out * 3, out),
-          init(out * 3), zeros(out))
+GRUCell(in, out; init = glorot_uniform, kernel_init = glorot_uniform) =
+  GRUCell(init(out * 3, in), kernel_init(out * 3, out), init(out * 3), zeros(out))
 
 function (m::GRUCell)(h, x)
   b, o = m.b, size(h, 1)

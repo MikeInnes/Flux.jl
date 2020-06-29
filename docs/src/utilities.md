@@ -33,6 +33,7 @@ Conv((3, 3), 1=>8, relu)
 ```@docs
 Flux.glorot_uniform
 Flux.glorot_normal
+Flux.orthogonal
 ```
 
 ## Model Abstraction
