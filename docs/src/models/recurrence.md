@@ -101,4 +101,4 @@ m = Chain(LSTM(10, 15), Dense(15, 5))
 m.(seq)
 ```
 
-Finally, we can reset the hidden state of the cell back to its initial value using `reset!(m)`.
+Finally, we can reset the hidden state of the cell back to its initial value using `reset!(m)`. We can also get the hidden states of a model using `Flux.states(m)` or load states back using `Flux.loadstates!`. 

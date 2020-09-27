@@ -57,6 +57,50 @@ reset!(m) = foreach(reset!, functor(m)[1])
 
 flip(f, xs) = reverse(f.(reverse(xs)))
 
+"""
+    states(m)
+
+Get states of model `m`
+
+# Examples
+```julia
+julia> Flux.states(Chain(LSTM(1, 1)))
+Zygote.IdSet{Any}(IdDict{Any,Nothing}(Float32[0.0] => nothing,Float32[0.0] => nothing))
+```
+"""
+function states(m)
+  ss = []
+  smap(f, x) = (f(x); fmap1(f, x))
+  smap(m) do x
+    x isa Recur || return 
+    if x.state isa Tuple
+      push!(ss, x.state...)
+    else
+      push!(ss, x.state)
+    end
+  end
+  return ss
+end
+
+"""
+    loadstates!(m, xs)
+
+Load states `xs` into model `m`
+
+# Examples
+```julia
+julia> model = Chain(LSTM(1, 1))
+julia> Flux.loadstates!(model, Flux.states(m))
+```
+"""
+function loadstates!(m, xs)
+    for (s, x) in zip(states(m), xs)
+      size(s) == size(x) ||
+        error("Expected state size $(size(s)), got $(size(x))")
+      copyto!(s, x)
+    end
+end
+
 # Vanilla RNN
 
 mutable struct RNNCell{F,A,V}
