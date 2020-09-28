@@ -113,6 +113,7 @@ Dense(W, b) = Dense(W, b, identity)
 
 function Dense(in::Integer, out::Integer, σ = identity;
                initW = glorot_uniform, initb = zeros)
+  σ = typeof(σ) <: typeof(tanh) ? SLEEFPriates.tanh : σ
   return Dense(initW(out, in), initb(out), σ)
 end
 
