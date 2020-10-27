@@ -37,6 +37,8 @@ Possible values include:
 """
 trainmode!(m, mode = true) = mode isa Bool ? testmode!(m, !mode) : testmode!(m, mode)
 
+params!(p::Flux.Params, x::Zeros{<:Number}, seen = Flux.IdSet()) = nothing
+
 params!(p::Params, x::AbstractArray{<:Number}, seen = IdSet()) = push!(p, x)
 
 function params!(p::Params, x, seen = IdSet())

@@ -43,10 +43,19 @@ end
   @test sum(op) == prod(size(op))
 
   bias = Conv((2,2), 1=>3, bias = Flux.Zeros())
+
+  # Test that disabled bias is not in parameters
+  # and gathered parameters can be loaded back
+  bias_parameters = bias |> Flux.params
+  @test length(bias_parameters) == 1
+  @test Flux.Zeros() ∉ bias_parameters
+  Flux.loadparams!(bias, bias_parameters)
+
+  # Test that disabled bias does not appear in gradients
   op = bias(ip)
   @test sum(op) ≈ 0.f0
   gs = gradient(() -> sum(bias(ip)), Flux.params(bias))
-  @test gs[bias.bias] == nothing
+  @test !haskey(gs, bias.bias)
 
   # Train w/o bias and make sure no convergence happens
   # when only bias can be converged
