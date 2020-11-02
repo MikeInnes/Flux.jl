@@ -113,6 +113,15 @@ end
   @test size.(params(r)) == [(5, 10), (5, 5), (5,), (5,)]
 end
 
+@testset "namedparams" begin
+  m = Dense(10, 5)
+  @test Flux.namedparams(m) == Base.IdDict(m.W => "W", m.b => "b")
+  m = RNN(10, 5)
+  @test Flux.namedparams(m) == Base.IdDict(m.cell.Wi => "Wi", m.cell.Wh => "Wh", m.init => "init", m.cell.b => "b")
+  c = Chain(m, m)
+  @test Flux.namedparams(c) == Base.IdDict(m.cell.Wi => "Wi", m.cell.Wh => "Wh", m.init => "init", m.cell.b => "b")
+end
+
 @testset "Basic Stacking" begin
   x = randn(3,3)
   stacked = stack([x, x], 2)

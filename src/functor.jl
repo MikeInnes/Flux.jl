@@ -53,6 +53,39 @@ function params(m...)
   return ps
 end
 
+namedparams!(p, x::AbstractArray{<:Number}, name = :nothing, seen = IdSet()) = p[x] = name
+
+function namedparams!(p, x, name = :nothing, seen = IdSet())
+  x in seen && return
+  push!(seen, x)
+  for (name, child) in pairs(trainable(x))
+    name = name isa Symbol ? string(name) : ""
+    namedparams!(p, child, name, seen)
+  end
+end
+
+"""
+    namedparams(m...)
+
+Gate named parameters of the model
+
+# Examples
+```julia
+julia> Flux.namedparams(Chain(LSTM(1, 1)))
+IdDict{Any,String} with 5 entries:
+  Float32[0.0415536; 0.334981; 0.49804; 0.258496]    => "Wi"
+  Float32[0.0]                                       => ""
+  Float32[0.336735; -0.167129; -0.695561; -0.743882] => "Wh"
+  Float32[-0.979939, 1.0, 1.06309, -0.0981269]       => "b"
+  Float32[0.0]                                       => ""
+```
+"""
+function namedparams(m...)
+  ps = IdDict{Any, String}()
+  namedparams!(ps, m, :nothing)
+  return ps
+end
+
 # Deprecated stuff
 macro treelike(args...)
   functorm(args...)
