@@ -3,4 +3,5 @@
 *.jl.mem
 docs/build/
 docs/site/
-deps
+deps/*
+!deps/SnoopCompile/

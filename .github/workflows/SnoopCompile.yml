@@ -1,0 +1,88 @@
+name: SnoopCompile
+
+
+# Edit based on your repository.
+on:
+  push:
+    branches:
+      # - 'master'
+  pull_request:  # comment for big repositories
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  SnoopCompile:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Uncomment other versions if you want multi-version signatures (should exactly match BotConfig.version):
+        version:
+          - '1.4.1'
+          - '1.3.1'
+          # - '1.2.0' # min
+        # Uncomment other options if you want multi-os signatures (currently only these are supported by Github):
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        arch:
+          - x64
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.version }}
+      - name: Install dependencies
+        run: |
+          julia --project -e 'using Pkg; Pkg.instantiate();'
+          julia -e 'using Pkg; Pkg.add(PackageSpec(url = "https://github.com/aminya/SnoopCompile.jl", rev = "multios")); Pkg.develop(PackageSpec(; path=pwd())); using SnoopCompile; SnoopCompile.addtestdep();'
+      - name: Generating precompile files
+        run: julia --project -e 'include("deps/SnoopCompile/snoopi_bot.jl")'
+      - name: Running Benchmark
+        run: julia --project -e 'include("deps/SnoopCompile/snoopi_bench.jl")'
+      - name: Upload all
+        uses: actions/upload-artifact@v2
+        with:
+          path: ./
+
+  Create_PR:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    needs: SnoopCompile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download all
+        uses: actions/download-artifact@v2
+      - name: Move the content of the directory to the root
+        run: |
+          rsync -a artifact/* ./
+          rm -d -r artifact
+      - name: Discard unrelated changes
+        run: |
+          test -f 'Project.toml' && git checkout -- 'Project.toml'
+          git ls-files 'Manifest.toml' | grep . && git checkout -- 'Manifest.toml'
+          (git diff -w --no-color || git apply --cached --ignore-whitespace && git checkout -- . && git reset && git add -p) || echo done
+      - name: Format precompile_includer.jl
+        run: julia -e 'using Pkg; Pkg.add("JuliaFormatter"); using JuliaFormatter; format_file("src/precompile_includer.jl")'
+      - name: Create Pull Request
+        # https://github.com/marketplace/actions/create-pull-request
+        uses: peter-evans/create-pull-request@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Update precompile_*.jl file
+          # committer: YOUR NAME <yourEmail@something.com> # Change `committer` to your name and your email.
+          title: "[AUTO] Update precompiles"
+          labels: SnoopCompile
+          branch: "SnoopCompile_AutoPR"
+
+
+  Skip:
+    if: "contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip CI 🚫
+        run: echo skip ci
