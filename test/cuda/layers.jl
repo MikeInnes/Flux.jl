@@ -45,13 +45,8 @@ end
 
 # Repeats from Conv, CrossCor
 
-# Just to give testset in gradtest meaningful labels
-ConvNoBias(args...) = Conv(args...; bias=false)
-ConvTransposeNoBias(args...) = ConvTranspose(args...; bias=false)
-CrossCorNoBias(args...) = CrossCor(args...; bias=false)
-DepthwiseConvNoBias(args...) = DepthwiseConv(args...;bias=false)
 r = rand(Float32, 28, 28, 1, 1)
-conv_layers = [Conv, ConvNoBias, ConvTranspose, ConvTransposeNoBias, CrossCor, CrossCorNoBias, DepthwiseConv, DepthwiseConvNoBias]
+conv_layers = [Conv, ConvTranspose, CrossCor, DepthwiseConv]
 gradtest("Conv", conv_layers, r, (2,2), 1=>3)
 
 pooling_layers = [MaxPool, MeanPool]
@@ -99,26 +94,4 @@ end
   for layer in stateless_layers_broadcasted
     stateless_gradtest_broadcasted(layer, x, y)
   end
-end
-
-@testset "Zeros mapped for $cl" for cl in (Conv, ConvTranspose, CrossCor, DepthwiseConv)
-  l = cl((2,2), 1=>3, bias = false) |> gpu
-  ip = zeros(Float32, 28,28,1,1) |> gpu
-  if cl in BROKEN_LAYERS
-    @test_broken sum(l(ip)) ≈ 0.f0
-    @test_broken gradient(() -> sum(l(ip)), Flux.params(l)) isa Flux.Zygote.Grads
-  else
-    @test sum(l(ip)) ≈ 0.f0
-    gs = gradient(() -> sum(l(ip)), Flux.params(l))
-    @test l.bias ∉ gs.params 
-  end
-end
-
-@testset "Dense with Zeros bias" begin
-  l = Dense(ones(Float32, 4,3), Flux.Zeros()) |> gpu
-  ip = zeros(Float32, 3, 7) |> gpu
-
-  @test sum(l(ip)) ≈ 0.f0  
-  gs = gradient(() -> sum(l(ip)), Flux.params(l))
-  @test l.b ∉ gs.params 
 end

@@ -1,5 +1,5 @@
 using Flux
-using Flux: throttle, nfan, glorot_uniform, glorot_normal, kaiming_normal, kaiming_uniform, stack, unstack, Zeros
+using Flux: throttle, nfan, glorot_uniform, glorot_normal, kaiming_normal, kaiming_uniform, stack, unstack
 using StatsBase: var, std
 using Random
 using Test
@@ -129,92 +129,6 @@ end
   @test eltype(f32(f64(m))[1].W) == Float32
 end
 
-@testset "Zeros" begin
-  m = Dense(3,2; bias=false)
-  @test f64(m).b === m.b === Zeros()
-  @test f32(m).b === m.b === Zeros()
-
-  @testset "Gradients for broadcasted $op with sizes $s" for op in (+,-,*), s in ((1,), (2,3))
-    o = ones(s)
-    z = zeros(s)
-    Z = Zeros()
-
-    @testset "Explicit" begin
-      gfun(args...) = gradient((x, y) -> sum(op.(x,y)), args...)
-      g = gfun(o, z) 
-      @test gfun(o, Z) == (g[1], nothing)
-
-      g = gfun(z, o) 
-      @test gfun(Z, o) == (nothing, g[2])
-    end
-
-    @testset "Implicit" begin
-      gfun(args...) = gradient(() -> sum(op.(args...)), params(collect(args)))
-      g = gfun(o, z) 
-
-      gres = gfun(o, Z)
-      @test gres[o] == g[o]
-      @test Z ∉ gres.params
-
-      g = gfun(z, o) 
-      gres = gfun(Z, o)
-      @test gres[o] == g[o]
-      @test Z ∉ gres.params
-    end
-  end
-
-  @testset "Gradients for broadcasted / with sizes $s" for s in ((1,), (2,3))
-    o = ones(s)
-    z = zeros(s)
-    Z = Zeros() # Only defined for 0-dim
-
-    @testset "Explicit" begin
-      gfun(args...) = gradient((x, y) -> sum(x ./ y), args...)
-      g = gfun(z, o) 
-      @test gfun(Z, o) == (nothing, g[2])
-    end
-
-    @testset "Implicit" begin
-      gfun(x,y) = gradient(() -> sum(x ./ y), params([x,y]))
-
-      g = gfun(z, o) 
-      gres = gfun(Z, o)
-      @test gres[o] == g[o]
-      @test Z ∉ gres.params
-    end
-  end
-
-  @testset "Gradients for $op with sizes $s" for op in (+,-), s in (tuple(), (1,), (2,3))
-    o = ones(s)
-    z = zeros(s)
-    Z = Zeros()
-
-
-    @testset "Explicit" begin
-      gfun(args...) = gradient((x, y) -> sum(op(x,y)), args...)
-
-      g = gfun(o, z) 
-      @test gfun(o, Z) == (g[1], nothing)
-
-      g = gfun(z, o) 
-      @test gfun(Z, o) == (nothing, g[2])
-    end
-
-    @testset "Implicit" begin
-      gfun(args...) = gradient(() -> sum(op(args...)), params(collect(args)))
-      g = gfun(o, z) 
-      gres = gfun(o, Z)
-      @test gres[o] == g[o]
-      @test Z ∉ gres.params
-
-      g = gfun(z, o) 
-      gres = gfun(Z, o)
-      @test gres[o] == g[o]
-      @test Z ∉ gres.params
-    end
-  end
-end
-
 @testset "Stacking" begin
   stacked_array=[ 8 9 3 5; 9 6 6 9; 9 1 7 2; 7 4 10 6 ]
   unstacked_array=[[8, 9, 9, 7], [9, 6, 1, 4], [3, 6, 7, 10], [5, 9, 2, 6]]
@@ -222,54 +136,3 @@ end
   @test stack(unstacked_array, 2) == stacked_array
   @test stack(unstack(stacked_array, 1), 1) == stacked_array
 end
-
-@testset "Param remapping" begin
-  ls(dims...) = reshape(collect(Float32, 1:prod(dims)), dims...)
-  dl(nin, nout, bias) = Dense(ls(nin, nout), bias(nout)) 
-  dm(bias) = Chain(
-    dl(3, 5, bias),
-    dl(5, 4, bias),
-    dl(4, 3, bias)
-  )
-
-  nobias(n) = Zeros()
-  testdense(m, bt) = @testset "Check layer $i" for (i, (l1, l2)) in enumerate(zip(m, dm(bt)))
-    @test l1.W == l2.W
-    @test l1.b == l2.b
-    @test typeof(l1.b) === typeof(l2.b)
-  end
-
-  @testset "loadparams!" begin 
-    import Flux: loadparams!
-    pars(w, b::Zeros) = [w, zeros(size(w,2))]
-    pars(w, b) = [w, b] 
-    pars(l) = pars(l.W, l.b)
-    pararray(m) = mapreduce(pars, vcat, m)
-    weights(m) = mapreduce(l -> [l.W], vcat, m)
-    @testset "Bias type $bt" for bt in (zeros, nobias)
-      m = dm(bt)
-      loadparams!(m, params(m))
-      testdense(m, bt)
-    end
-
-    @testset "$b1 to $b2" for (b1, b2, be) in (
-      (zeros, ones, ones),           # Load ones as bias to a model with zeros as bias -> model gets ones as bias
-      (ones, nobias, zeros),         # Load Zeros as bias to a model with ones as bias-> model gets zeros as bias
-      (nobias, ones, nobias),        # Load ones as bias to a model with Zeros as bias-> model bias does not change
-    )
-      m1 = dm(b1)
-      m2 = dm(b2)
-      loadparams!(m1, b1 == nobias ? weights(m2) : pararray(m2))
-      testdense(m1, be)
-    end
-  end
-
-  @testset "destructure" begin
-    import Flux: destructure
-    @testset "Bias type $bt" for bt in (zeros, nobias)
-      m = dm(bt)
-      p, re = destructure(m)
-      testdense(re(p), bt)
-    end
-  end
-end 

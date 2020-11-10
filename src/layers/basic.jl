@@ -83,7 +83,7 @@ extraChain(::Tuple{}, x) = ()
 
 
 """
-    Dense(in::Integer, out::Integer, σ = identity; bias=true)
+    Dense(in::Integer, out::Integer, σ = identity)
 
 Create a traditional `Dense` layer with parameters `W` and `b`.
 
@@ -91,8 +91,6 @@ Create a traditional `Dense` layer with parameters `W` and `b`.
 
 The input `x` must be a vector of length `in`, or a batch of vectors represented
 as an `in × N` matrix. The out `y` will be a vector or batch of length `out`.
-
-Setting `bias` to `false` will switch bias off for the layer.
 
 # Example
 ```
@@ -103,12 +101,9 @@ julia> d(rand(5))
 2-element Array{Float32,1}:
  -0.16210233
   0.123119034
-
-julia> d = Dense(5, 2; bias=false)
-Dense(5, 2)
 ```
 """
-struct Dense{F,S<:AbstractArray,T<:Union{Zeros, AbstractVector}}
+struct Dense{F,S<:AbstractArray,T<:AbstractArray}
   W::S
   b::T
   σ::F
@@ -117,8 +112,8 @@ end
 Dense(W, b) = Dense(W, b, identity)
 
 function Dense(in::Integer, out::Integer, σ = identity;
-               initW = glorot_uniform, initb = zeros, bias=true)
-  return Dense(initW(out, in), create_bias(bias, initb, out), σ)
+               initW = glorot_uniform, initb = zeros)
+  return Dense(initW(out, in), initb(out), σ)
 end
 
 @functor Dense

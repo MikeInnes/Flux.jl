@@ -177,20 +177,6 @@ ones(dims...) = Base.ones(Float32, dims...)
 zeros(dims...) = Base.zeros(Float32, dims...)
 
 """
-    create_bias(shallcreate::Bool, iftrue, dims...) 
-    create_bias(x, ::Any...)
-
-Return a bias parameter for a layer.
-
-Essentially handles the allowed input options for the `bias` keyword:
-    If `false`: Return the `Zeros` type which turns bias off.
-    If `true` : Return the result of `iftrue(dims)`.
-    If not a boolean, return self to handle the case of bias=somearray.
-"""
-create_bias(shallcreate::Bool, iftrue, dims...) = shallcreate ? iftrue(dims...) : Zeros()
-create_bias(x, ::Any...) = x  
-
-"""
     unsqueeze(xs, dim)
 
 Return `xs` reshaped into an `Array` one dimensionality higher than `xs`,

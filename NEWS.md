@@ -1,6 +1,3 @@
-# v0.11.3
-* Added option to set `bias` to [false](https://github.com/FluxML/Flux.jl/pull/1379) to eliminating `bias` from being trained. 
-
 # v0.11.2
 
 * Adds the [AdaBelief](https://arxiv.org/abs/2010.07468) optimiser.

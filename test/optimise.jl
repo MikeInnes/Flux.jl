@@ -14,10 +14,9 @@ using Random
                        Nesterov(), RMSProp(), Momentum()]
     Random.seed!(42)
     w′ = randn(10, 10)
-    b = Flux.Zeros()
-    loss(x) = Flux.Losses.mse(w*x, w′*x .+ b)
+    loss(x) = Flux.Losses.mse(w*x, w′*x)
     for t = 1: 10^5
-      θ = params([w′, b])
+      θ = Params([w′])
       x = rand(10)
       θ̄ = gradient(() -> loss(x), θ)
       Optimise.update!(opt, θ, θ̄)
