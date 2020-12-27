@@ -71,3 +71,148 @@ ps = params(m)
 delete!(ps, m[2].b) 
 ```
 
+## Custom multiple input or output layer, and the custom parallel layer
+
+Sometimes a model needs to receive several separate inputs at once, or several separate outputs are required. Sometimes parallel separate paths within the deeper structures of the model are advantageous.
+
+With FluxML, custom layers can be implemented that allow multiple inputs, outputs or even internal parallel structures. The custom layers that can be used for this purpose are explained below, namely Join, Split and Parallel. All layers should work with gpu acceleration. The examples have not been tested or optimized for performance.
+
+These layers are also already implemented as standard layers in Flux, and can be accessed via `Flux.Join(..)`, `Flux.Split(..)`, or `Flux.Parallel(..)`.
+
+### The custom multiple input layer: the custom join layer
+
+By using the following layer, your model can receive multiple inputs through a single tuple. `CustomJoin(a,b)` receives a tuple with two entries ~ `([], [])` and returns a concatenated vector of the outputs of each path. The length of the tuple is arbitrary in the following code, so the input tuple can contain 2, 3, or more arrays. The defined number of paths (separated by a comma: `CustomJoin(p1,p2,...)`) and the length of the input tuple must be equal. It is recommended to use simple formats for the output, e.g. layers with a vector as output.
+
+```julia
+using Flux
+using CUDA
+
+# custom join layer
+struct CustomJoin
+  fs
+end
+
+function CustomJoin(fs...)
+  CustomJoin(fs)
+end
+
+function (w::CustomJoin)(t::Tuple)
+  vcat([w.fs[i](t[i]) for i in 1:length(w.fs)]...)
+end
+
+Flux.@functor CustomJoin
+
+# test
+model = Chain(
+  CustomJoin(
+    Chain(
+      Dense(1, 5),
+      Dense(5, 1)
+    ),
+    Dense(1, 2),
+    Dense(1, 1),
+  ),
+  Dense(4, 1)
+) |> gpu
+
+tuple_input = cu(rand(1), rand(1), rand(1))
+
+model(tuple_input)
+# returns a single float vector with one value
+```
+
+### The custom multiple output layer: the custom split layer
+
+By using the following layer, your model can return multiple outputs as tuples. `CustomSplit(a,b)` receives a single array but returns a tuple with two or more entries ~ `([], [])`. The length of the tuple is arbitrary and depends on the number of implemented paths. It is recommended to use simple formats for the output, e.g. dense layer output.
+
+```julia
+using Flux
+using CUDA
+
+custom split layer
+struct CustomSplit
+  fs
+end
+
+function CustomSplit(fs...)
+  CustomSplit(fs)
+end
+
+function (w::CustomSplit)(x::AbstractArray)
+  tuple([w.fs[i](x) for i in 1:length(w.fs)])
+end
+
+Flux.@functor CustomSplit
+
+# test
+model = Chain(
+  Dense(1, 1),
+  CustomSplit(
+    Dense(1, 1),
+    Dense(1, 1),
+    Dense(1, 1)
+  )
+) |> gpu
+
+model(cu(rand(1))) 
+# returns a tuple with three float vectors, each with one value
+```
+
+A custom loss function for the multiple outputs may look like this:
+
+```
+using Statistics
+function loss(x, y)
+  # rms over all the mse
+  sqrt(mean([Flux.mse(modelSplit(x)[i], y[i]) for i in 1:length(y)].^2.))
+end
+```
+
+### The custom multiple paths internal layer: the parallel layer
+
+By using the following layer, your model can calculate several separate layers within your model separately. CustomParallel(a,b)` receives a single input vector and returns a merged vector of the outputs of each path. However, multiple forward paths are created within the parallel layer. It is recommended to use simple formats for the output, e.g. the output of the dense layer.
+
+```julia
+using Flux
+using CUDA
+
+# custom parallel layer
+struct CustomParallel
+  fs
+end
+
+function CustomParallel(fs...)
+  CustomParallel(fs)
+end
+
+function (w::CustomParallel)(x::AbstractArray)
+  vcat([w.fs[i](x) for i in 1:length(w.fs)]...)
+end
+
+Flux.@functor CustomParallel
+
+# test
+model = Chain(
+  Dense(1, 1),
+  CustomParallel(
+    Dense(1, 1),
+    Dense(1, 3),
+    Chain(
+      Dense(1, 5),
+      Dense(5, 2),
+    )
+  ),
+  Dense(6, 1)
+) |> gpu
+
+model(cu((rand(1))))
+# returns a single float vector with one value
+```
+
+
+
+
+
+
+
+

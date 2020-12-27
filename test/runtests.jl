@@ -32,6 +32,7 @@ end
   include("layers/stateless.jl")
   include("layers/recurrent.jl")
   include("layers/conv.jl")
+  include("layers/structure.jl")
 end
 
 @testset "CUDA" begin
