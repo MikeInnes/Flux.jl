@@ -2,7 +2,7 @@
 
 ## Taking Gradients
 
-Flux's core feature is taking gradients of Julia code. The `gradient` function takes another Julia function `f` and a set of arguments, and returns the gradient with respect to each argument. (It's a good idea to try pasting these examples in the Julia terminal.)
+Flux's core feature is taking gradients of Julia code. The [`gradient`](@ref) function takes another Julia function `f` and a set of arguments, and returns the gradient with respect to each argument. (It's a good idea to try pasting these examples in the Julia terminal.)
 
 ```jldoctest basics
 julia> using Flux
@@ -20,14 +20,17 @@ julia> d2f(2)
 6
 ```
 
-When a function has many parameters, we can get gradients of each one at the same time:
+When a function has many parameters, we can get gradients of each one at the same time by passing each one as an argument:
 
 ```jldoctest basics
 julia> f(x, y) = sum((x .- y).^2);
-
+```
+For this `f`, we can get the gradient with respect to both `x` and `y` in a single call:
+```jldoctest basics
 julia> gradient(f, [2, 1], [2, 0])
 ([0, 2], [0, -2])
 ```
+where `x = [2, 1]` and `y = [2, 0]`. The above syntax is the same as: `df(x,y) = gradient(f,x,y); df([2,1], [2,0])`
 
 But machine learning models can have *hundreds* of parameters! To handle this, Flux lets you work with collections of parameters, via `params`. You can get the gradient of all parameters used in a program without explicitly passing them in.
 
