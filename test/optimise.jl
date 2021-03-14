@@ -14,7 +14,7 @@ using Random
                        Nesterov(), RMSProp(), Momentum()]
     Random.seed!(42)
     w′ = randn(10, 10)
-    b = Flux.Zeros()
+    b = false
     loss(x) = Flux.Losses.mse(w*x, w′*x .+ b)
     for t = 1: 10^5
       θ = params([w′, b])

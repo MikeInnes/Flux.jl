@@ -67,7 +67,6 @@ end
 extraChain(::Tuple{}, x) = ()
 
 
-
 """
     Dense(in, out, σ=identity; bias=true, init=glorot_uniform)
     Dense(W::AbstractMatrix, [bias, σ])
@@ -153,7 +152,7 @@ end
 function Base.show(io::IO, l::Dense)
   print(io, "Dense(", size(l.weight, 2), ", ", size(l.weight, 1))
   l.σ == identity || print(io, ", ", l.σ)
-  l.bias == Zeros() && print(io, "; bias=false")
+  l.bias == false && print(io, "; bias=false")
   print(io, ")")
 end
 

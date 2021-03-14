@@ -191,7 +191,7 @@ end
 
 @testset "constructors: $fun" for fun in [Conv, CrossCor, ConvTranspose, DepthwiseConv]
   @test fun(rand(2,3,4)).bias isa Vector{Float64}
-  @test fun(rand(2,3,4,5), false).bias isa Flux.Zeros
+  @test fun(rand(2,3,4,5), false).bias === false
   if fun == Conv
     @test fun(rand(2,3,4,5,6), rand(6)).bias isa Vector{Float64}
     @test fun(rand(2,3,4,5,6), 1:6).bias isa Vector{Float64}

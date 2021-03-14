@@ -6,6 +6,10 @@ _paddims(x::Tuple, y::Tuple) = (x..., y[(end - (length(y) - length(x) - 1)):end]
 expand(N, i::Tuple) = i
 expand(N, i::Integer) = ntuple(_ -> i, N)
 
+conv_reshape_bias(c) = c.bias isa AbstractVector ?
+  reshape(c.bias, map(_->1, c.stride)..., :, 1) :
+  c.bias
+
 """
     SamePad()
 
@@ -152,9 +156,8 @@ convfilter(filter::NTuple{N,Integer}, ch::Pair{<:Integer,<:Integer};
 function (c::Conv)(x::AbstractArray)
   # TODO: breaks gpu broadcast :(
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
-  σ, b = c.σ, reshape(c.bias, ntuple(_->1, length(c.stride))..., :, 1)
   cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
-  σ.(conv(x, c.weight, cdims) .+ b)
+  (c.σ).(conv(x, c.weight, cdims) .+ conv_reshape_bias(c))
 end
 
 function Base.show(io::IO, l::Conv)
@@ -248,9 +251,8 @@ end
 
 function (c::ConvTranspose)(x::AbstractArray)
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
-  σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
   cdims = conv_transpose_dims(c, x)
-  σ.(∇conv_data(x, c.weight, cdims) .+ b)
+  (c.σ).(∇conv_data(x, c.weight, cdims) .+ conv_reshape_bias(c))
 end
 
 function Base.show(io::IO, l::ConvTranspose)
@@ -341,9 +343,8 @@ depthwiseconvfilter(filter::NTuple{N,Integer}, ch::Pair{<:Integer,<:Integer};
                     init = glorot_uniform) where N = init(filter..., div(ch[2], ch[1]), ch[1])
 
 function (c::DepthwiseConv)(x)
-  σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
   cdims = DepthwiseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
-  σ.(depthwiseconv(x, c.weight, cdims) .+ b)
+  (c.σ).(depthwiseconv(x, c.weight, cdims) .+ conv_reshape_bias(c))
 end
 
 function Base.show(io::IO, l::DepthwiseConv)
@@ -422,9 +423,8 @@ end
 function (c::CrossCor)(x::AbstractArray)
   # TODO: breaks gpu broadcast :(
   # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
-  σ, b = c.σ, reshape(c.bias, map(_->1, c.stride)..., :, 1)
   cdims = DenseConvDims(x, c.weight; stride=c.stride, padding=c.pad, dilation=c.dilation)
-  σ.(crosscor(x, c.weight, cdims) .+ b)
+  (c.σ).(crosscor(x, c.weight, cdims) .+ conv_reshape_bias(c))
 end
 
 function Base.show(io::IO, l::CrossCor)

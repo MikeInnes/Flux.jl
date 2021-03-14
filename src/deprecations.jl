@@ -3,7 +3,9 @@
 @deprecate InstanceNorm(λ, β, γ, μ, σ², ϵ, momentum) InstanceNorm(λ, β, γ, μ, σ², ϵ, momentum, true, true, nothing)
 @deprecate BatchNorm(λ, β, γ, μ, σ², ϵ, momentum) BatchNorm(λ, β, γ, μ, σ², ϵ, momentum, true, true, nothing)
 @deprecate GroupNorm(G, λ, β, γ, μ, σ², ϵ, momentum) GroupNorm(G, λ, β, γ, μ, σ², ϵ, momentum, nothing)
+
 @deprecate outdims(f, inputsize) outputsize(f, inputsize)
+
 @deprecate Conv(; weight,  bias, activation=identity, kws...) Conv(weight, bias, activation; kws...) 
 @deprecate ConvTranspose(; weight, bias, activation=identity, kws...) ConvTranspose(weight, bias, activation; kws...) 
 @deprecate DepthwiseConv(; weight, bias, activation=identity, kws...) DepthwiseConv(weight, bias, activation; kws...) 
@@ -18,3 +20,11 @@ function Base.getproperty(a::Dense, s::Symbol)
   end
   return getfield(a, s)
 end
+
+struct Zeros # was used both Dense(10, 2, initb = Zeros) and Dense(rand(2,10), Zeros())
+  function Zeros()
+    Base.depwarn("Zeros() and Zeros(dims...) are deprecated, please simply use bias=false instead", :Zeros)
+    false
+  end
+end
+Zeros(args...) = Zeros()

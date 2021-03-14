@@ -34,7 +34,6 @@ using CUDA
 const use_cuda = Ref(false)
 
 include("utils.jl")
-include("zeros.jl")
 include("onehot.jl")
 include("functor.jl")
 

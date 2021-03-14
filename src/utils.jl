@@ -382,11 +382,11 @@ Return a bias parameter for a layer, based on the value given
 to the constructor's keyword `bias=bias`.
 
 * `bias == true` creates a zero vector, of the same type as weights.
-* `bias == false` returns `Zeros()`, a special struct which exists only to encode the absence of bias.
+* `bias == false` returns `false`, to indicate no trainable bias.
 * `bias::AbstractArray` uses the array provided, provided it has the correct size and eltype. If the type is wrong, it will be converted.
 """
 function create_bias(weights::AbstractArray, bias::Bool, dims::Integer...)
-  bias ? fill!(similar(weights, dims...), 0) : Zeros()
+  bias ? fill!(similar(weights, dims...), 0) : false
 end
 function create_bias(weights::AbstractArray, bias::AbstractArray, dims::Integer...)
   size(bias) == dims || throw(DimensionMismatch("expected bias of size $(dims), got size $(size(bias))"))
