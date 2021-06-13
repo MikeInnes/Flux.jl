@@ -1,5 +1,4 @@
 import Adapt
-import .CUDA
 
 struct OneHotArray{T<:Integer, L, N, var"N+1", I<:Union{T, AbstractArray{T, N}}} <: AbstractArray{Bool, var"N+1"}
   indices::I
@@ -61,12 +60,9 @@ Base.getindex(x::OneHotArray{<:Any, L}, ::Colon, I...) where L = OneHotArray(x.i
 Base.getindex(x::OneHotArray{<:Any, <:Any, <:Any, N}, ::Vararg{Colon, N}) where N = x
 Base.getindex(x::OneHotArray, I::CartesianIndex{N}) where N = x[I[1], Tuple(I)[2:N]...]
 
-_onehot_bool_type(x::OneHotLike{<:Any, <:Any, <:Any, N, <:Union{Integer, AbstractArray}}) where N = Array{Bool, N}
-_onehot_bool_type(x::OneHotLike{<:Any, <:Any, <:Any, N, <:CuArray}) where N = CuArray{Bool, N}
-
 function Base.cat(x::OneHotLike{<:Any, L}, xs::OneHotLike{<:Any, L}...; dims::Int) where L
   if isone(dims) || any(x -> !_isonehot(x), (x, xs...))
-    return cat(map(x -> convert(_onehot_bool_type(x), x), (x, xs...))...; dims = dims)
+    return cat(map(x -> Bool.(x), (x, xs...))...; dims = dims)
   else
     return OneHotArray(cat(_indices(x), _indices.(xs)...; dims = dims - 1), L)
   end
@@ -84,8 +80,6 @@ Base.hcat(x::T, xs::T...) where {L, T <: OneHotLike{<:Any, L, <:Any, 1}} =
 batch(xs::AbstractArray{<:OneHotVector{<:Any, L}}) where L = OneHotArray(_indices.(xs), L)
 
 Adapt.adapt_structure(T, x::OneHotArray{<:Any, L}) where L = OneHotArray(adapt(T, _indices(x)), L)
-
-Base.BroadcastStyle(::Type{<:OneHotArray{<: Any, <: Any, <: Any, N, <: CuArray}}) where N = CUDA.CuArrayStyle{N}()
 
 Base.argmax(x::OneHotLike; dims = Colon()) =
   (_isonehot(x) && dims == 1) ?
@@ -174,7 +168,7 @@ function _fast_argmax(x::OneHotLike)
   if _isonehot(x)
     return _indices(x)
   else
-    return _fast_argmax(convert(_onehot_bool_type(x), x))
+    return _fast_argmax(Bool.(x))
   end
 end
 

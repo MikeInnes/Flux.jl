@@ -1,6 +1,3 @@
-using Flux, CUDA, Test
-using Flux: pullback
-
 @testset "CUDNN BatchNorm" begin
     @testset "4D Input" begin
         x = rand(Float32, 2, 2, 3, 4)

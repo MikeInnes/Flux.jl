@@ -39,7 +39,7 @@ function gpu_gradtest(name::String, layers::Vector, x_cpu = nothing, args...; te
         ps_gpu = Flux.params(l_gpu)
 
         if typeof(l_gpu) <: BROKEN_LAYERS
-          @test_broken gradient(() -> sum(l_gpu(x_gpu)), ps_gpu) isa Flux.Zygote.Grads
+          @test_broken gradient(() -> sum(l_gpu(x_gpu)), ps_gpu) isa Zygote.Grads
         else
           y_gpu, back_gpu = pullback(() -> sum(l_gpu(x_gpu)), ps_gpu)
           gs_gpu = back_gpu(1f0) # TODO many layers error out when backprop int 1, should fix
@@ -48,14 +48,14 @@ function gpu_gradtest(name::String, layers::Vector, x_cpu = nothing, args...; te
           xg_cpu = gradient(x -> sum(l_cpu(x)), x_cpu)[1]
           xg_gpu = gradient(x -> sum(l_gpu(x)), x_gpu)[1]
 
-          # test 
+          # test
           if test_cpu
             @test y_gpu ≈ y_cpu rtol=1f-3 atol=1f-3
             @test Array(xg_gpu) ≈ xg_cpu rtol=1f-3 atol=1f-3
           end
-          @test gs_gpu isa Flux.Zygote.Grads
+          @test gs_gpu isa Zygote.Grads
           for (p_cpu, p_gpu) in zip(ps_cpu, ps_gpu)
-            @test gs_gpu[p_gpu] isa Flux.CUDA.CuArray
+            @test gs_gpu[p_gpu] isa CUDA.CuArray
             if test_cpu
               @test Array(gs_gpu[p_gpu]) ≈ gs_cpu[p_cpu] rtol=1f-3 atol=1f-3
             end
@@ -79,14 +79,14 @@ for act in ACTIVATIONS
                  CrossCor, CrossCorNoBias,
                  DepthwiseConv, DepthwiseConvNoBias]
   gpu_gradtest("Convolution with $act", conv_layers, r, (2,2), 1=>3, act, test_cpu = false)
-  
+
   batch_norm = [BatchNorm]
   gpu_gradtest("BatchNorm 1 with $act", batch_norm, rand(Float32, 28,28,3,4), 3, act, test_cpu = false) #TODO fix errors
   gpu_gradtest("BatchNorm 2 with $act", batch_norm, rand(Float32, 5,4), 5, act, test_cpu = false)
-  
+
   instancenorm = [InstanceNorm]
   gpu_gradtest("InstanceNorm with $act", instancenorm, r, 1, act, test_cpu = false)
-  
+
   groupnorm = [GroupNorm]
   gpu_gradtest("GroupNorm with $act", groupnorm, rand(Float32, 28,28,3,1), 3, 1, act, test_cpu = false)
 end
@@ -126,11 +126,11 @@ end
   ip = zeros(Float32, 28,28,1,1) |> gpu
   if typeof(l) <: BROKEN_LAYERS
     @test_broken sum(l(ip)) ≈ 0.f0
-    @test_broken gradient(() -> sum(l(ip)), Flux.params(l)) isa Flux.Zygote.Grads
+    @test_broken gradient(() -> sum(l(ip)), Flux.params(l)) isa Zygote.Grads
   else
     @test sum(l(ip)) ≈ 0.f0
     gs = gradient(() -> sum(l(ip)), Flux.params(l))
-    @test l.bias ∉ gs.params 
+    @test l.bias ∉ gs.params
   end
 end
 
@@ -238,7 +238,7 @@ end
     input = randn(10, 10, 10, 10) |> gpu
     layer_gpu = Parallel(+, zero, identity) |> gpu
     @test layer_gpu(input) == input
-    @test layer_gpu(input) isa Flux.CUDA.CuArray
+    @test layer_gpu(input) isa CUDA.CuArray
   end
 
   @testset "vararg input" begin

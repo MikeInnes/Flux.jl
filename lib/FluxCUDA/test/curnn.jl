@@ -1,5 +1,3 @@
-using Flux, CUDA, Test
-
 @testset for R in [RNN, GRU, LSTM]
   m = R(10, 5) |> gpu
   x = gpu(rand(10))

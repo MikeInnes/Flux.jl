@@ -1,9 +1,18 @@
-using Flux, Test, CUDA
+using Test
+
+using FluxCUDA
+using FluxCUDA: Flux, CUDA
+
+using .CUDA
+# XXX: allowscalar is currently not inherited by child tasks, so set it globally
+#CUDA.allowscalar(false)
+ENV["JULIA_GPU_ALLOWSCALAR"] = "false"
+
+using .Flux
+@assert Flux.default_gpu_converter[] == cu
+
 using Zygote
 using Zygote: pullback
-
-@info "Testing GPU Support"
-CUDA.allowscalar(false)
 
 include("test_utils.jl")
 include("cuda.jl")

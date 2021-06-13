@@ -8,6 +8,7 @@ using Zygote, MacroTools, Juno, Reexport
 using MacroTools: @forward
 @reexport using NNlib
 using Zygote: Params, @adjoint, gradient, pullback, @nograd
+using GPUArrays
 
 export gradient
 
@@ -30,8 +31,7 @@ export Descent, ADAM, Momentum, Nesterov, RMSProp,
   WeightDecay, ClipValue, ClipNorm
 
 
-using CUDA
-const use_cuda = Ref(false)
+const default_gpu_converter = Ref{Function}(identity)
 
 include("utils.jl")
 include("zeros.jl")
@@ -53,16 +53,5 @@ include("losses/Losses.jl")
 using .Losses # TODO: stop importing Losses in Flux's namespace in v0.12
 
 include("deprecations.jl")
-
-include("cuda/cuda.jl")
-
-function __init__()
-  use_cuda[] = CUDA.functional() # Can be overridden after load with `Flux.use_cuda[] = false`
-  if CUDA.functional()
-    if !CUDA.has_cudnn()
-      @warn "CUDA.jl found cuda, but did not find libcudnn. Some functionality will not be available."
-    end
-  end
-end
 
 end # module

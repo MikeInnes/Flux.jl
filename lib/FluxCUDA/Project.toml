@@ -1,0 +1,12 @@
+name = "FluxCUDA"
+uuid = "899ac4cc-ca92-44e3-a03b-1f2759274493"
+authors = ["Tim Besard <tim.besard@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+NNlibCUDA = "a00861dc-f156-4864-bf3c-e6376f28a68d"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"

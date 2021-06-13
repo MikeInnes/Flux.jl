@@ -25,7 +25,9 @@ end
 @testset "Losses" begin
   include("losses.jl")
   include("ctc.jl")
-  if Flux.use_cuda[] include("ctc-gpu.jl") end
+  if Flux.default_gpu_converter[] !== identity
+    include("ctc-gpu.jl")
+  end
 end
 
 @testset "Layers" begin
@@ -40,14 +42,6 @@ end
 @testset "outputsize" begin
   using Flux: outputsize
   include("outputsize.jl")
-end
-
-@testset "CUDA" begin
-  if Flux.use_cuda[]
-    include("cuda/runtests.jl")
-  else
-    @warn "CUDA unavailable, not testing GPU support"
-  end
 end
 
 @static if VERSION == v"1.5"

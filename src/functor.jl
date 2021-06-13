@@ -66,7 +66,7 @@ end
 
 cpu(m) = fmap(x -> adapt(Array, x), m)
 
-gpu(x) = use_cuda[] ? fmap(CUDA.cu, x) : x
+gpu(x) = fmap(default_gpu_converter[], x)
 
 # Precision
 

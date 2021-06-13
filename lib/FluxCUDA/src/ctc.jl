@@ -35,12 +35,12 @@ function count_repeats(A)
 end
 
 function compute_alpha_kernel(probs, labelSize, uttLength, repeats, labelsWithoutBlanks, labelsWithBlanks, alpha, blankLabel)
-  
+
   tid = threadIdx().x
   L = labelSize
   T = uttLength
   S = length(labelsWithBlanks)
-  
+
   if L + repeats > T
     return nothing
   end
@@ -49,7 +49,7 @@ function compute_alpha_kernel(probs, labelSize, uttLength, repeats, labelsWithou
   # Corner-case checking
   start = (L + repeats <= T) ? 0 : 1
   last = S > 1 ? 2 : 1
-  
+
   # Fill in first column (time step)
   i = tid
   while i <= last - start
@@ -57,7 +57,7 @@ function compute_alpha_kernel(probs, labelSize, uttLength, repeats, labelsWithou
     i += blockDim().x
   end
   sync_threads()
-  
+
   # Fill in coefficients for each time step
   for t=2:T
     # Corner-case checking
@@ -69,7 +69,7 @@ function compute_alpha_kernel(probs, labelSize, uttLength, repeats, labelsWithou
       end
     end
     sync_threads()
-    
+
     # Fill in coefficients for each label class in the target output sequence;
     # each thread will process the calculations for one class
     idx = tid+1
@@ -94,24 +94,24 @@ function compute_beta_and_grad_kernel(probs, labelSize, uttLength,
                   repeatsInLabel, labelsWithBlanks,
                   alphas, beta, output, accum,
                   grad, blankLabel, loss)
-  
+
   tid = threadIdx().x
   L = labelSize
   T = uttLength
   S = 2*L + 1
   repeats = repeatsInLabel
   labels = labelsWithBlanks
-  
+
   if (L+repeats) > T
     return nothing
   end
-  
+
   # Corner-case checking
   start = S > 1 ? S-2 : 0
   last = L + repeats < T ? S : S-1
   sync_threads()
   i = tid
-  
+
   # Calculate coefficients for last column (time step)
   # then determine alpha and beta product
   while i <= last - start
@@ -120,16 +120,16 @@ function compute_beta_and_grad_kernel(probs, labelSize, uttLength,
     i += blockDim().x
   end
   sync_threads()
-  
+
   # Fill in `accum` for last column (time step)
-  if tid == 1    
+  if tid == 1
     for i=1:S
       labelIdx = labels[i]
       accum[labelIdx, T] = log_plus_f(accum[labelIdx, T], output[i, T])
     end
   end
   sync_threads()
-  
+
   # Fill in `grad` for last column (time step)
   idx = tid
   while idx <= size(grad, 1)
@@ -137,13 +137,13 @@ function compute_beta_and_grad_kernel(probs, labelSize, uttLength,
     for i=1:S
       s = log_plus_f(s, output[i, T])
     end
-    
+
     # ∂L/∂a (where a is activation before logsoftmax)
     grad[idx, T] = exp(probs[idx, T]) - exp(accum[idx, T] - s)
     idx += blockDim().x
   end
   sync_threads()
-  
+
   # Fill in the rest of the coefficients
   t = T-1
   while t >= 1
@@ -175,10 +175,10 @@ function compute_beta_and_grad_kernel(probs, labelSize, uttLength,
       sync_threads()
     end
     sync_threads()
-    
+
     # Calculate accumulated alpha-beta products for each label class for
     # each time step; used in calculating gradients
-    if tid == 1      
+    if tid == 1
       for i=1:S
         labelIdx = labels[i]
         accum[labelIdx, t] = log_plus_f(accum[labelIdx, t], output[i, t])
@@ -186,10 +186,10 @@ function compute_beta_and_grad_kernel(probs, labelSize, uttLength,
     end
     sync_threads()
     idx = tid
-    
+
     # Calculate gradients
     while idx <= size(grad, 1)
-      
+
       # ∂L/∂a (where a is activation before logsoftmax)
       grad[idx, t] = exp(probs[idx, t]) - exp(accum[idx, t] + loss)
       idx += blockDim().x

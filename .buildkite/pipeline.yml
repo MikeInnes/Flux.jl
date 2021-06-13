@@ -1,20 +1,40 @@
 steps:
-  - label: "GPU integeration with julia v1.6"       # change to "v1" when 1.6 is out
+  - label: "CUDA support"
     plugins:
       - JuliaCI/julia#v1:
-          version: "1"
-      - JuliaCI/julia-test#v1: ~
+          version: 1.6
+    command: |
+      julia -e 'using Pkg;
+
+                println("--- :julia: Instantiating project");
+                Pkg.develop(PackageSpec(path=pwd()));
+                Pkg.develop(PackageSpec(path=joinpath(pwd(), "lib/FluxCUDA")));
+
+                println("+++ :julia: Running tests");
+                Pkg.test("FluxCUDA"; coverage=true);'
     agents:
       queue: "juliagpu"
       cuda: "*"
+    if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 60
 
-  # - label: "GPU nightly"
-  #   plugins:
-  #     - JuliaCI/julia#v1:
-  #         version: "nightly"
-  #     - JuliaCI/julia-test#v1: ~
-  #   agents:
-  #     queue: "juliagpu"
-  #     cuda: "*"
-  #   timeout_in_minutes: 60
+  - label: "AMD support"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: 1.6
+    command: |
+      julia -e 'using Pkg;
+
+                println("--- :julia: Instantiating project");
+                Pkg.develop(PackageSpec(path=pwd()));
+                Pkg.develop(PackageSpec(path=joinpath(pwd(), "lib/FluxAMDGPU")));
+
+                println("+++ :julia: Running tests");
+                Pkg.test("FluxAMDGPU"; coverage=true);'
+    soft_fail:
+      - exit_status: 1
+    agents:
+      queue: "juliagpu"
+      rocm: "*"
+    if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 60

@@ -108,7 +108,7 @@ end
     @testset "w/ cat" begin
       r = reshape(oa, 10, :)
       @test hcat(r, r) isa OneHotArray
-      @test vcat(r, r) isa Array{Bool}
+      @test vcat(r, r) isa BitMatrix
     end
 
     @testset "w/ argmax" begin
