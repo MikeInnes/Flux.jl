@@ -557,6 +557,34 @@ function apply!(o::Optimiser, x, Δ)
   return Δ
 end
 
+mutable struct MultiLR{T,F}
+  opt::T
+  decay::F
+  milestone::AbstractVector
+  current::Int
+  dataset_length::Int
+end
+
+MultiLR(opt, decay = 1, milestone = []; dataset_length::Int) =
+  MultiLR(opt, decay, sort(milestone), 0, dataset_length)
+
+function apply!(o::MultiLR, x, Δ)
+  cur_epoch = o.current ÷ o.dataset_length
+  if cur_epoch in o.milestone
+    # @show cur_epoch
+    lr!(o.opt, lr(o.opt) * o.decay)
+    o.current += 1
+    # popfirst!(o.milestone)
+  end
+  cur_epoch >= o.milestone[end] || (o.current += 1)
+  apply!(o.opt, x, Δ)
+end
+
+lr(o) = o.eta
+function lr!(opt, lr)
+  opt.eta = lr
+end
+
 """
     InvDecay(γ = 0.001)
 
