@@ -114,7 +114,7 @@ end
     @testset "w/ argmax" begin
       r = reshape(oa, 10, :)
       @test argmax(r) == argmax(OneHotMatrix(reshape(oa.indices, :), 10))
-      @test Flux._fast_argmax(r) == collect(reshape(oa.indices, :))
+      @test Flux.onecold(r) == collect(reshape(oa.indices, :))
     end
   end
 
