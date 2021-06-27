@@ -1,16 +1,4 @@
-# Adapted from Knet's src/data.jl (author: Deniz Yuret)
-using Random: AbstractRNG, shuffle!, GLOBAL_RNG
-
-struct DataLoader{D,R<:AbstractRNG}
-    data::D
-    batchsize::Int
-    nobs::Int
-    partial::Bool
-    imax::Int
-    indices::Vector{Int}
-    shuffle::Bool
-    rng::R
-end
+using Random
 
 """
     DataLoader(data; batchsize=1, shuffle=false, partial=true, rng=GLOBAL_RNG)
@@ -67,46 +55,113 @@ Usage example:
         @assert size(datum.labels) == (2,)
     end
 """
-function DataLoader(data; batchsize=1, shuffle=false, partial=true, rng=GLOBAL_RNG)
-    batchsize > 0 || throw(ArgumentError("Need positive batchsize"))
+struct DataLoader{P, F, D,S,L}
+  f::P
+  channel::F
+  # task::T
+  data::D
+  iterator::S
+  batchsize::Int
+  batchdim::L
+  partial::Bool
+end
 
-    n = _nobs(data)
-    if n < batchsize
-        @warn "Number of observations less than batchsize, decreasing the batchsize to $n"
-        batchsize = n
+# X :: tuple of args to loss
+function DataLoader(f,
+                    args::Tuple;
+                    batchsize = 1, shuffle = false,
+                    partial = true, batchdim = ndims,
+                    buffersize = 10)
+
+  # find_arrs = findall(a -> typeof(a) <: AbstractArray, args)
+  # TODO: find all arrays and apply the same tricks as other constructor
+  dataset_size = 1
+  shuffle, batchsize = validate_kwargs(shuffle, dataset_size, batchsize)
+  ix = shuffle(1:dataset_size)
+  iterator = Iterators.partition(ix, batchsize)
+  ch = Channel(buffersize)
+  t = Task(() -> begin
+    for i in zip(args...)
+      put!(ch, f(i...)) # f(getobs(fs, i, batchdim)))
     end
-    imax = partial ? n : n - batchsize + 1
-    DataLoader(data, batchsize, n, partial, imax, [1:n;], shuffle, rng)
+    close(ch)
+  end)
+  schedule(t)
+  DataLoader(f, ch, args, iterator, batchsize, batchdim, partial)
 end
 
-@propagate_inbounds function Base.iterate(d::DataLoader, i=0)     # returns data in d.indices[i+1:i+batchsize]
-    i >= d.imax && return nothing
-    if d.shuffle && i == 0
-        shuffle!(d.rng, d.indices)
+function validate_kwargs(shuffle, dataset_size, batchsize)
+  shuffle = shuffle isa Bool ? shuffle ? Random.shuffle : identity : shuffle
+  if dataset_size < batchsize
+    @warn "Batch Size $batchsize greater than dataset size $dataset_size - reducing batch size to dataset size"
+    bs = dataset_size
+  else
+    bs = batchsize
+  end
+  shuffle, bs 
+end
+
+# `f` is an augmentation/ validation on the "minibatches"
+# It can be used to act as a sampling function where there is no data
+# batchdim is a function to suggest which dim is the actual
+# batch dimension - saying `4` isn't helpful if you have a
+# 4 dimensional feature array but a matrix label set
+function DataLoader(f,
+                    args::NTuple{N,AbstractArray};
+                    batchsize = 1, shuffle = true,
+                    partial = true, batchdim = ndims,
+                    buffersize = 10, epochs = 1) where N
+
+  feats = first(args)
+  bd = batchdim(feats)
+  dataset_size = size(first(args), bd)
+  shuffle, batchsize = validate_kwargs(shuffle, dataset_size, batchsize)
+  ix = shuffle(1:dataset_size)
+  fs = map(feat -> getindex(feat,
+                 ntuple(i -> i == batchdim(feat) ? ix : Colon(), length(size(feat)))...), args)
+  iterator = Iterators.flatten(Iterators.repeated(Iterators.partition(ix, batchsize), epochs))
+  ch = Channel{Any}(buffersize)
+  t = Task(() -> begin
+    for i in iterator
+      # sleep(1)
+      fullbatch = length(i) == batchsize
+      if fullbatch
+        put!(ch, f(getobs(fs, i, batchdim)))
+      elseif partial
+        put!(ch, f(getobs(fs, i, batchdim)))
+        close(ch)
+      else
+        close(ch)
+      end
     end
-    nexti = min(i + d.batchsize, d.nobs)
-    ids = d.indices[i+1:nexti]
-    batch = _getobs(d.data, ids)
-    return (batch, nexti)
+  end)
+  bind(ch, t)
+  schedule(t)
+  # partial = false -> drop the last iteration of iterator
+  DataLoader(f, ch, fs, iterator, batchsize, batchdim, partial)
+end
+DataLoader(args::NTuple{N,AbstractArray}; kwargs...) where N = DataLoader(x -> identity.(x), args; kwargs...)
+
+function DataLoader(args;
+                    batchsize = 1, shuffle = true,
+                    partial = true, batchdim = ndims,
+                    epochs = 1) where N
+  DataLoader(x -> identity.(x), args,
+             batchsize = batchsize,
+             shuffle = shuffle,
+             partial = partial,
+             batchdim = batchdim)
 end
 
-function Base.length(d::DataLoader)
-    n = d.nobs / d.batchsize
-    d.partial ? ceil(Int,n) : floor(Int,n)
+function getobs(data::AbstractArray, ix, bd)
+  getindex(data,
+           ntuple(i -> i == bd(data) ? ix : Colon(), ndims(data))...)
 end
+getobs(data, ix, bd) = getobs.(data, Ref(ix), bd)
+# getobs(data::Vector, ix, bd) = (d[ix] for d in data)
 
-_nobs(data::AbstractArray) = size(data)[end]
+Base.iterate(dl::DataLoader) = iterate(dl.channel)
+Base.iterate(dl::DataLoader, i) = iterate(dl.channel, i)
 
-function _nobs(data::Union{Tuple, NamedTuple})
-    length(data) > 0 || throw(ArgumentError("Need at least one data input"))
-    n = _nobs(data[1])
-    if !all(x -> _nobs(x) == n, Base.tail(data))
-        throw(DimensionMismatch("All data should contain same number of observations"))
-    end
-    return n
-end
-
-_getobs(data::AbstractArray, i) = data[ntuple(i -> Colon(), Val(ndims(data) - 1))..., i]
-_getobs(data::Union{Tuple, NamedTuple}, i) = map(Base.Fix2(_getobs, i), data)
-
-Base.eltype(::DataLoader{D}) where D = D
+Base.length(dl::DataLoader) = dl.partial ? length(dl.iterator) : length(dl.iterator) - 1
+Base.eltype(dl::DataLoader) = eltype(dl.channel)
