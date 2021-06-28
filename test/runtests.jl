@@ -25,7 +25,6 @@ end
 @testset "Losses" begin
   include("losses.jl")
   include("ctc.jl")
-  if Flux.use_cuda[] include("ctc-gpu.jl") end
 end
 
 @testset "Layers" begin
@@ -44,13 +43,16 @@ end
 
 @testset "CUDA" begin
   if Flux.use_cuda[]
+    using CUDA
+    CUDA.allowscalar(false)
+    include("ctc-gpu.jl")
     include("cuda/runtests.jl")
   else
     @warn "CUDA unavailable, not testing GPU support"
   end
 end
 
-@static if VERSION == v"1.5"
+@static if VERSION >= v"1.5"
   using Documenter
   @testset "Docs" begin
     DocMeta.setdocmeta!(Flux, :DocTestSetup, :(using Flux); recursive=true)
