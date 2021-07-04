@@ -206,3 +206,24 @@ end
     @test Flux.focal_loss(ŷ1, y1) ≈ 0.45990566879720157
     @test Flux.focal_loss(ŷ, y; γ=0.0) ≈ Flux.crossentropy(ŷ, y)
 end
+
+@testset "margin_ranking_loss" begin
+  x1 = [1.2 2.3 3.4]
+  x2 = [9.8 8.7 7.6]
+  y = 1
+
+  @test Flux.margin_ranking_loss(x1, x2, y) ≈ [8.6 6.4 4.2]
+  @test Flux.margin_ranking_loss(x1, x2, y, margin=1.0) ≈ [9.6 7.4 5.2]
+  @test Flux.margin_ranking_loss(x1, x2, y, margin=1.0, mode=sum) ≈ 22.2
+end
+
+@testset "no spurious promotions for margin_ranking_loss" begin
+  for T in (Float32, Float64)
+    x1 = rand(T, 2)
+    x2 = rand(T, 2)
+    for y in (1,-1)
+      fwd, back = Flux.pullback(Flux.margin_ranking_loss, x1, x2, y)
+      @test eltype(fwd) == T
+    end
+  end
+end
