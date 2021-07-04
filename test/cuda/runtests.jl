@@ -5,7 +5,21 @@ using Zygote: pullback
 @info "Testing GPU Support"
 CUDA.allowscalar(false)
 
-include("test_utils.jl")
+function gpu_gradtest(f, args...)
+  args_gpu = gpu.(args)
+
+  l_cpu, back_cpu = pullback((x...) -> f(x...), args...)
+  g_cpu = back_cpu(1f0)[1]
+
+  l_gpu, back_gpu = pullback((x...) -> f(x...), args_gpu...)
+  g_gpu = back_gpu(1f0)[1]
+
+  @test l_cpu ≈ l_gpu   rtol=1e-4 atol=1e-4
+  @test g_gpu isa CuArray
+  @test g_cpu ≈ collect(g_gpu)   rtol=1e-4 atol=1e-4
+end
+
+
 include("cuda.jl")
 include("losses.jl")
 include("layers.jl")

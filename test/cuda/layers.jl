@@ -50,14 +50,14 @@ function gpu_gradtest(name::String, layers::Vector, x_cpu = nothing, args...; te
 
           # test 
           if test_cpu
-            @test y_gpu ≈ y_cpu rtol=1f-3 atol=1f-3
-            @test Array(xg_gpu) ≈ xg_cpu rtol=1f-3 atol=1f-3
+            @test y_gpu ≈ y_cpu rtol = 1f-3 atol = 1f-3
+            @test Array(xg_gpu) ≈ xg_cpu rtol = 1f-3 atol = 1f-3
           end
           @test gs_gpu isa Flux.Zygote.Grads
           for (p_cpu, p_gpu) in zip(ps_cpu, ps_gpu)
             @test gs_gpu[p_gpu] isa Flux.CUDA.CuArray
             if test_cpu
-              @test Array(gs_gpu[p_gpu]) ≈ gs_cpu[p_cpu] rtol=1f-3 atol=1f-3
+              @test Array(gs_gpu[p_gpu]) ≈ gs_cpu[p_cpu] rtol = 1f-3 atol = 1f-3
             end
           end
         end
@@ -116,9 +116,9 @@ gpu_gradtest("PixelShuffle 1d", pixelshuffle, rand(Float32, 3, 18, 3), 3)
 
 @testset "function layers" begin
   x = rand(Float32, 3,3)
-  gpu_autodiff_test(x -> sum(Flux.normalise(x; dims=1)), x)
-  gpu_autodiff_test(x -> sum(Flux.normalise(x; dims=2)), x)
-  gpu_autodiff_test(x -> sum(Flux.normalise(x)), x)
+  gpu_gradtest(x -> sum(Flux.normalise(x; dims=1)), x)
+  gpu_gradtest(x -> sum(Flux.normalise(x; dims=2)), x)
+  gpu_gradtest(x -> sum(Flux.normalise(x)), x)
 end
 
 @testset "Zeros mapped for $cl" for cl in (Conv, ConvTranspose, CrossCor, DepthwiseConv)
@@ -146,7 +146,7 @@ end
 @testset "Extended BatchNorm" begin
   m_cpu = BatchNorm(2)
   m_gpu = m_cpu |> gpu
-  x_cpu = rand(Float32, 3, 2, 2)
+  x_cpu = rand(Float32, 3, 1, 2, 2)
   x_gpu = x_cpu |> gpu
 
   ## In :auto mode, track statistics only in gradient contest
