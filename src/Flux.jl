@@ -4,7 +4,7 @@ module Flux
 
 using Base: tail
 using Statistics, Random, LinearAlgebra
-using Zygote, MacroTools, Juno, Reexport
+using Zygote, MacroTools, ProgressLogging, Reexport
 using MacroTools: @forward
 @reexport using NNlib
 using Zygote: Params, @adjoint, gradient, pullback, @nograd

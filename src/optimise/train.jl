@@ -1,4 +1,4 @@
-using Juno
+using ProgressLogging: @progress
 import Zygote: Params, gradient
 
 """

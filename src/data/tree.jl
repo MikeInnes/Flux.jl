@@ -21,13 +21,6 @@ function Base.show(io::IO, t::Tree)
   print_tree(io, t)
 end
 
-using Juno
-
-@render Juno.Inline t::Tree begin
-  render(t) = Juno.Tree(t.value, render.(t.children))
-  Juno.Tree(typeof(t), [render(t)])
-end
-
 Base.getindex(t::Tree, i::Integer) = t.children[i]
 Base.getindex(t::Tree, i::Integer, is::Integer...) = t[i][is...]
 
