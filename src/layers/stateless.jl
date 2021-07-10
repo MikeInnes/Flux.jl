@@ -13,7 +13,7 @@ julia> rand(3,4,5) |> Flux.flatten |> size
 
 julia> xs = rand(Float32, 10,10,3,7);
 
-julia> m = Chain(Conv((3,3), 3=>4, pad=1), Flux.flatten, Dense(400,33));
+julia> m = Chain(Conv((3,3), 3 => 4, pad=1), Flux.flatten, Dense(400 => 33));
 
 julia> xs |> m[1] |> size
 (10, 10, 4, 7)
