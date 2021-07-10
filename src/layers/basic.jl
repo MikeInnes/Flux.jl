@@ -285,7 +285,7 @@ function Base.show(io::IO, b::SkipConnection)
 end
 
 """
-    Bilinear(in1, in2, out, σ=identity; bias=true, init=glorot_uniform)
+    Bilinear((in1, in2) => out, σ=identity; bias=true, init=glorot_uniform)
     Bilinear(W::AbstractArray, [bias, σ])
 
 Creates a Bilinear layer, which operates on two inputs at the same time.
@@ -295,12 +295,14 @@ for all `i ∈ 1:out`:
     z[i] = σ(x' * W[i,:,:] * y + bias[i])
 
 If `x` and `y` are matrices, then each column of the output `z = B(x, y)` is of this form,
-with `B` a Bilinear layer.
+with `B` the Bilinear layer.
 
-If `y` is not given, it is taken to be equal to `x`, i.e. `B(x) == B(x, x)`
+If the second input `y` is not given, it is taken to be equal to `x`, i.e. `B(x) == B(x, x)`
 
 The two inputs may also be provided as a tuple, `B((x, y)) == B(x, y)`,
 which is accepted as the input to a `Chain`.
+
+If the two input sizes are the same, `in1 == in2`, then you may write `Bilinear(in => out, σ)`.
 
 The initialisation works as for [`Dense`](@ref) layer, with `W = init(out, in1, in2)`.
 By default the bias vector is `zeros(Float32, out)`, option `bias=false` will switch off
@@ -310,7 +312,8 @@ trainable bias. Either of these may be provided explicitly.
 ```jldoctest
 julia> x, y = randn(Float32, 5, 32), randn(Float32, 5, 32);
 
-julia> B = Flux.Bilinear(5, 5, 7);
+julia> B = Flux.Bilinear((5, 5) => 7)
+Bilinear(5 => 7)    # 182 parameters
 
 julia> B(x) |> size  # interactions based on one input
 (7, 32)
@@ -319,15 +322,15 @@ julia> B(x,y) == B((x,y))  # two inputs, may be given as a tuple
 true
 
 julia> sc = SkipConnection(
-                Chain(Dense(5, 20, tanh), Dense(20, 9, tanh)),
-                Flux.Bilinear(9, 5, 3, bias=false),
+                Chain(Dense(5 => 20, tanh), Dense(20, 9, tanh)),
+                Flux.Bilinear((9, 5) => 3, bias=false),
             );  # used as the recombinator, with skip as the second input
 
 julia> sc(x) |> size
 (3, 32)
 
 julia> Flux.Bilinear(rand(4,8,16), false, tanh)  # first dim of weight is the output
-Bilinear(8, 16, 4, tanh, bias=false)
+Bilinear((8, 16) => 4, tanh; bias=false)  # 512 parameters
 ```
 """
 struct Bilinear{F,A,B}
@@ -347,6 +350,9 @@ function Bilinear(in1::Integer, in2::Integer, out::Integer, σ = identity;
                   init = glorot_uniform, bias = true)
   Bilinear(init(out, in1, in2), bias, σ)
 end
+
+Bilinear(((in1, in2), out)::Pair{<:Tuple, <:Integer}, σ = identity; kw...) = Bilinear(in1, in2, out, σ; kw...)
+Bilinear((in12, out)::Pair{<:Integer, <:Integer}, σ = identity; kw...) = Bilinear(in12, in12, out, σ; kw...)
 
 function (a::Bilinear)(x::AbstractMatrix, y::AbstractMatrix)
   W, b, σ = a.weight, a.bias, a.σ
@@ -371,9 +377,13 @@ end
 (a::Bilinear)(x::NTuple{2, AbstractArray}) = a(x[1], x[2])
 
 function Base.show(io::IO, l::Bilinear)
-  print(io, "Bilinear(", size(l.weight, 2), ", ", size(l.weight, 3), ", ", size(l.weight, 1))
+  if size(l.weight, 2) == size(l.weight, 3)
+    print(io, "Bilinear(", size(l.weight, 2), " => ", size(l.weight, 1))
+  else
+    print(io, "Bilinear((", size(l.weight, 2), ", ", size(l.weight, 3), ") => ", size(l.weight, 1))
+  end
   l.σ == identity || print(io, ", ", l.σ)
-  l.bias == Flux.Zeros() && print(io, ", bias=false")
+  l.bias == Flux.Zeros() && print(io, "; bias=false")
   print(io, ")")
 end
 
