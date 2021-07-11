@@ -70,6 +70,7 @@ extraChain(::Tuple{}, x) = ()
 
 """
     Dense(in => out, σ=identity; bias=true, init=glorot_uniform)
+    Dense(in, out, [σ; keywords...])
     Dense(W::AbstractMatrix, [bias, σ])
 
 Create a traditional `Dense` layer, whose forward pass is given by:
@@ -88,7 +89,7 @@ The weight matrix and/or the bias vector (of length `out`) may also be provided 
 
 # Examples
 ```jldoctest
-julia> d = Dense(5, 2)
+julia> d = Dense(5 => 2)
 Dense(5 => 2)       # 12 parameters
 
 julia> d(rand(Float32, 5, 64)) |> size
@@ -126,6 +127,7 @@ function Dense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
                init = glorot_uniform, bias=true)
 
   W = if initW !== nothing
+    # These deprecations were added in v0.12
     Base.depwarn("keyword initW is deprecated, please use init (which similarly accepts a funtion like randn)", :Dense)
     initW(out, in)
   else
