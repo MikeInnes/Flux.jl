@@ -123,13 +123,13 @@ gpu_gradtest("PixelShuffle 2d", pixelshuffle, rand(Float32, 3, 4, 18, 3), 3)
 gpu_gradtest("PixelShuffle 1d", pixelshuffle, rand(Float32, 3, 18, 3), 3)
 
 embedding = [Flux.Embedding]
-gpu_gradtest("Embedding", embedding, [1,3,5], 5, 2)
-gpu_gradtest("Embedding repeated indices", embedding, [1,3,5,3], 5, 2)
-gpu_gradtest("Embedding integer index", embedding, 1, 5, 2)
-gpu_gradtest("Embedding 2d index", embedding, [1 2; 3 4], 5, 2)
-gpu_gradtest("Embedding OneHotVec index", embedding, OneHotVector(1, 5), 5, 2)
-gpu_gradtest("Embedding OneHotMatrix index", embedding,  OneHotMatrix([1,2,3], 5), 5, 2)
-gpu_gradtest("Embedding OneHotMatrix repeated indices", embedding, OneHotMatrix([1,2,2], 5), 5, 2)
+gpu_gradtest("Embedding", embedding, [1,3,5], 5 => 2)
+gpu_gradtest("Embedding repeated indices", embedding, [1,3,5,3], 5 => 2)
+gpu_gradtest("Embedding integer index", embedding, 1, 5 => 2)
+gpu_gradtest("Embedding 2d index", embedding, [1 2; 3 4], 5 => 2)
+gpu_gradtest("Embedding OneHotVec index", embedding, OneHotVector(1, 5), 5 => 2)
+gpu_gradtest("Embedding OneHotMatrix index", embedding,  OneHotMatrix([1,2,3], 5), 5 => 2)
+gpu_gradtest("Embedding OneHotMatrix repeated indices", embedding, OneHotMatrix([1,2,2], 5), 5 => 2)
 
 @testset "function layers" begin
   x = rand(Float32, 3,3)

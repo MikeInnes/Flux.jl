@@ -431,7 +431,7 @@ function Base.show(io::IO, m::Parallel)
 end
 
 """
-    Embedding(in, out; init=randn)
+    Embedding(in => out; init=randn)
 
 A lookup table that stores embeddings of dimension `out` 
 for a vocabulary of size `in`. 
@@ -466,7 +466,7 @@ end
 
 @functor Embedding
 
-Embedding(in::Integer, out::Integer; init = randn32) = Embedding(init(out, in))
+Embedding(dims::Pair{<:Integer, <:Integer}; init = randn32) = Embedding(init(last(dims), first(dims)))
   
 
 (m::Embedding)(x::Integer) = m.weight[:, x]

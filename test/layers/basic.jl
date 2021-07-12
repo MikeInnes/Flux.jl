@@ -194,7 +194,7 @@ import Flux: activations
 
   @testset "Embedding" begin
     vocab_size, embed_size = 10, 4
-    m = Flux.Embedding(vocab_size, embed_size)
+    m = Flux.Embedding(vocab_size => embed_size)
     @test size(m.weight) == (embed_size, vocab_size)
     
     x = rand(1:vocab_size, 3)
