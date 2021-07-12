@@ -62,12 +62,53 @@ function loadparams!(m, xs)
 end
 
 # CPU/GPU movement conveniences
+"""
+    cpu(m)
 
+Moves a particular resource from where it is, onto the CPU.
+
+```julia-repl
+julia> m = Dense(1,2)
+Dense(1, 2)
+
+julia> m_gpu = gpu(m)
+Dense(1, 2)
+
+julia> typeof(m_gpu.W)
+CuArray{Float32, 2}
+
+julia> m_cpu = cpu(m_gpu)
+Dense(1, 2)
+
+julia> typeof(m_cpu.W)
+Matrix{Float32}
+```
+"""
 cpu(m) = fmap(x -> adapt(Array, x), m)
 
 _isbitsarray(::AbstractArray{<:Number}) = true
 _isbitsarray(::AbstractArray{T}) where T = isbitstype(T)
 _isbitsarray(x) = false
+
+"""
+    gpu(x)
+
+Moves a particular resource from where it is, onto the GPU, if available. It is a no-op otherwise.
+
+```julia-repl
+julia> m = Dense(1,2)
+Dense(1, 2)
+
+julia> typeof(m.W)
+Matrix{Float32}
+
+julia> m_gpu = gpu(m)
+Dense(1, 2)
+
+julia> typeof(m_gpu.W) # notice the type of the array changed to a CuArray
+CuArray{Float32, 2}
+```
+"""
 gpu(x) = use_cuda[] ? fmap(CUDA.cu, x; exclude = _isbitsarray) : x
 
 # Precision
