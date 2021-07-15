@@ -470,13 +470,10 @@ Embedding(dims::Pair{<:Integer, <:Integer}; init = randn32) = Embedding(init(las
   
 
 (m::Embedding)(x::Integer) = m.weight[:, x]
-(m::Embedding)(x::AbstractVector) = NNlib.gather(m.weight, x)
+(m::Embedding)(x::AbstractVector{<:Integer}) = NNlib.gather(m.weight, x)
 (m::Embedding)(x::AbstractArray) = reshape(m(vec(x)), :, size(x)...)
-
-function (m::Embedding)(x::Union{OneHotVector{T,L}, OneHotMatrix{T,L}}) where {T,L}
-    size(m.weight, 2) == L || throw(DimensionMismatch("Matrix column must correspond with OneHot size: $(size(m.weight, 2)) != $L"))
-  return m(onecold(x))
-end
+(m::Embedding)(x::AbstractArray{Bool}) = reshape(m(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+(m::Embedding)(x::AbstractVecOrMat{Bool}) = m.weight * x  # handles OneHotLikeVector, OneHotLikeMatrix
  
 function Base.show(io::IO, m::Embedding)
   print(io, "Embedding($(size(m.weight, 2)) => $(size(m.weight, 1)))")

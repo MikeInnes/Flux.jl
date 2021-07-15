@@ -169,5 +169,4 @@ for (fn, Dims) in ((:conv, DenseConvDims), (:depthwiseconv, DepthwiseConvDims))
   end
 end
 
-(m::Embedding)(x::AbstractVector{<:Nil}) = fill(nil, size(m.weight, 1), length(x))
-(m::Embedding)(x::AbstractArray{<:Nil}) = fill(nil, size(m.weight, 1), size(x)...)
+(m::Embedding)(x::AbstractVecOrMat{<:Nil}) = fill(nil, size(m.weight, 1), length(x))
