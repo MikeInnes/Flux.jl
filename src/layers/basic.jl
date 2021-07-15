@@ -456,7 +456,7 @@ julia> m([6, 15, 15])  # applied to a batch
  4.01  22.01  22.01
  5.01  23.01  23.01
 
-julia> ans == m(Flux.OneHotMatrix([6, 15, 15], 26))
+julia> ans == m(Flux.onehotbatch("foo", 'a':'z'))
 true
 ```
 """
