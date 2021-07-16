@@ -2,6 +2,17 @@
 
 NVIDIA GPU support should work out of the box on systems with CUDA and CUDNN installed. For more details see the [CUDA](https://github.com/JuliaGPU/CUDA.jl) readme.
 
+## Checking GPU Availability
+
+By default, Flux will run the checks on your system to see if it can support GPU functionality. You can check this explicity by typing `Flux.use_cuda[]` which is the internal flag Flux uses. You can also run:
+
+```julia
+julia> using CUDA
+
+julia> CUDA.functional()
+```
+which is part of the internal code that Flux is running to set the `Flux.use_cuda[]` flag.
+
 ## GPU Usage
 
 Support for array operations on other hardware backends, like GPUs, is provided by external packages like [CUDA](https://github.com/JuliaGPU/CUDA.jl). Flux is agnostic to array types, so we simply need to move model weights and data to the GPU and Flux will handle it.
