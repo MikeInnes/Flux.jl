@@ -431,7 +431,7 @@ function Base.show(io::IO, m::Parallel)
 end
 
 """
-    Embedding(in, out; init=randn)
+    Embedding(in => out; init=randn)
 
 A lookup table that stores embeddings of dimension `out` 
 for a vocabulary of size `in`. 
@@ -442,47 +442,39 @@ or the corresponding [onehot encoding](@ref Flux.OneHotArray).
 
 # Examples
 
-```julia-repl
-julia> using Flux: Embedding
+```jldoctest
+julia> m = Embedding(reshape(-6:45, 2, 26) .+ 0.01f0)
+Embedding(26 => 2)
 
-julia> vocab_size, embed_size = 1000, 4;
+julia> m(5)  # embedding vector for 5th element
+2-element Vector{Float32}:
+ 2.01
+ 3.01
 
-julia> model = Embedding(vocab_size, embed_size)
-Embedding(1000, 4)
+julia> m([6, 15, 15])  # applied to a batch
+2×3 Matrix{Float32}:
+ 4.01  22.01  22.01
+ 5.01  23.01  23.01
 
-julia> vocab_idxs = [1, 722, 53, 220, 3]
-
-julia> x = OneHotMatrix(vocab_idxs, vocab_size);
-
-julia> model(x)
-4×5 Matrix{Float32}:
-  0.91139    0.670462    0.463217   0.670462    0.110932
-  0.247225  -0.0823874   0.698694  -0.0823874   0.945958
- -0.393626  -0.590136   -0.545422  -0.590136    0.77743
- -0.497621   0.87595    -0.870251   0.87595    -0.772696
-```
-
-julia> model(vocab_idxs) == model(x)
+julia> ans == m(Flux.onehotbatch("foo", 'a':'z'))
 true
+```
 """
-struct Embedding{W}
+struct Embedding{W <: AbstractMatrix}
   weight::W
 end
 
 @functor Embedding
 
-Embedding(in::Integer, out::Integer; init = randn32) = Embedding(init(out, in))
+Embedding(dims::Pair{<:Integer, <:Integer}; init = randn32) = Embedding(init(last(dims), first(dims)))
   
 
 (m::Embedding)(x::Integer) = m.weight[:, x]
-(m::Embedding)(x::AbstractVector) = NNlib.gather(m.weight, x)
+(m::Embedding)(x::AbstractVector{<:Integer}) = NNlib.gather(m.weight, x)
 (m::Embedding)(x::AbstractArray) = reshape(m(vec(x)), :, size(x)...)
-
-function (m::Embedding)(x::Union{OneHotVector{T,L}, OneHotMatrix{T,L}}) where {T,L}
-    size(m.weight, 2) == L || throw(DimensionMismatch("Matrix column must correspond with OneHot size: $(size(m.weight, 2)) != $L"))
-  return m(onecold(x))
-end
+(m::Embedding)(x::AbstractArray{Bool}) = reshape(m(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+(m::Embedding)(x::AbstractVecOrMat{Bool}) = m.weight * x  # handles OneHotLikeVector, OneHotLikeMatrix
  
 function Base.show(io::IO, m::Embedding)
-  print(io, "Embedding($(size(m.weight, 2)), $(size(m.weight, 1)))")
+  print(io, "Embedding($(size(m.weight, 2)) => $(size(m.weight, 1)))")
 end

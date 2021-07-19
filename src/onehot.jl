@@ -32,6 +32,9 @@ const OneHotLike{T, L, N, var"N+1", I} =
   Union{OneHotArray{T, L, N, var"N+1", I},
         Base.ReshapedArray{Bool, var"N+1", <:OneHotArray{T, L, <:Any, <:Any, I}}}
 
+const OneHotLikeVector{T, L} = OneHotLike{T, L, 0, 1, T}
+const OneHotLikeMatrix{T, L, I} = OneHotLike{T, L, 1, 2, I}  
+
 _isonehot(x::OneHotArray) = true
 _isonehot(x::Base.ReshapedArray{<:Any, <:Any, <:OneHotArray{<:Any, L}}) where L = (size(x, 1) == L)
 

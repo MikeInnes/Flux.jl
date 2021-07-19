@@ -194,7 +194,7 @@ import Flux: activations
 
   @testset "Embedding" begin
     vocab_size, embed_size = 10, 4
-    m = Flux.Embedding(vocab_size, embed_size)
+    m = Flux.Embedding(vocab_size => embed_size)
     @test size(m.weight) == (embed_size, vocab_size)
     
     x = rand(1:vocab_size, 3)
@@ -202,9 +202,9 @@ import Flux: activations
     @test y isa Matrix{Float32}
     @test y ≈ m.weight[:,x]
     x2 = OneHotMatrix(x, vocab_size)
-    y2 = m(x2)
-    @test y2 isa Matrix{Float32}
-    @test y2 ≈ y
+    @test m(x2) isa Matrix{Float32}
+    @test m(x2) ≈ y 
+    @test m(collect(x2)) ≈ y
     @test_throws DimensionMismatch m(OneHotMatrix(x, 1000))
 
     x = rand(1:vocab_size, 3, 4)
@@ -215,5 +215,8 @@ import Flux: activations
     @test m(2) ≈ m.weight[:,2]
     @test m(OneHotVector(3, vocab_size)) ≈ m.weight[:,3]
     @test_throws DimensionMismatch m(OneHotVector(3, 1000))
+
+    x = onehotbatch(rand(1:vocab_size, 4, 3, 4, 5), 1:vocab_size)
+    @test m(x) ≈ m(onecold(x))
   end
 end
