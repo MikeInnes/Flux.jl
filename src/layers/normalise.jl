@@ -46,6 +46,12 @@ function dropout_mask(x, p; dims=:)
   return y
 end
 
+function dropout_mask(x::Array{Complex{Float64}}, p; dims=:)
+  y = rand!(similar(x, Float64, _dropout_shape(x, dims)))
+  y .= _dropout_kernel.(y, p, 1 - p)
+  return y
+end
+
 """
     Dropout(p; dims=:)
 
