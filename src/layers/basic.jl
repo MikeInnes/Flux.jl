@@ -70,7 +70,8 @@ extraChain(::Tuple{}, x) = ()
 
 
 """
-    Dense(in, out, σ=identity; bias=true, init=glorot_uniform)
+    Dense(in => out, σ=identity; bias=true, init=glorot_uniform)
+    Dense(in, out, [σ; keywords...])
     Dense(W::AbstractMatrix, [bias, σ])
 
 Create a traditional `Dense` layer, whose forward pass is given by:
@@ -89,8 +90,8 @@ The weight matrix and/or the bias vector (of length `out`) may also be provided 
 
 # Examples
 ```jldoctest
-julia> d = Dense(5, 2)
-Dense(5, 2)         # 12 parameters
+julia> d = Dense(5 => 2)
+Dense(5 => 2)       # 12 parameters
 
 julia> d(rand(Float32, 5, 64)) |> size
 (2, 64)
@@ -99,7 +100,7 @@ julia> d(rand(Float32, 5, 1, 1, 64)) |> size  # treated as three batch dimension
 (2, 1, 1, 64)
 
 julia> d1 = Dense(ones(2, 5), false, tanh)  # using provided weight matrix
-Dense(5, 2, tanh; bias=false)  # 10 parameters
+Dense(5 => 2, tanh; bias=false)  # 10 parameters
 
 julia> d1(ones(5))
 2-element Vector{Float64}:
@@ -120,11 +121,14 @@ struct Dense{F, M<:AbstractMatrix, B}
   end
 end
 
-function Dense(in::Integer, out::Integer, σ = identity;
+Dense(in::Integer, out::Integer, σ = identity; kw...) = Dense(in => out, σ; kw...)
+
+function Dense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
                initW = nothing, initb = nothing,
                init = glorot_uniform, bias=true)
 
   W = if initW !== nothing
+    # These deprecations were added in v0.12
     Base.depwarn("keyword initW is deprecated, please use init (which similarly accepts a funtion like randn)", :Dense)
     initW(out, in)
   else
@@ -152,7 +156,7 @@ end
   reshape(a(reshape(x, size(x,1), :)), :, size(x)[2:end]...)
 
 function Base.show(io::IO, l::Dense)
-  print(io, "Dense(", size(l.weight, 2), ", ", size(l.weight, 1))
+  print(io, "Dense(", size(l.weight, 2), " => ", size(l.weight, 1))
   l.σ == identity || print(io, ", ", l.σ)
   l.bias == Zeros() && print(io, "; bias=false")
   print(io, ")")
@@ -284,7 +288,7 @@ function Base.show(io::IO, b::SkipConnection)
 end
 
 """
-    Bilinear(in1, in2, out, σ=identity; bias=true, init=glorot_uniform)
+    Bilinear((in1, in2) => out, σ=identity; bias=true, init=glorot_uniform)
     Bilinear(W::AbstractArray, [bias, σ])
 
 Creates a Bilinear layer, which operates on two inputs at the same time.
@@ -294,12 +298,14 @@ for all `i ∈ 1:out`:
     z[i] = σ(x' * W[i,:,:] * y + bias[i])
 
 If `x` and `y` are matrices, then each column of the output `z = B(x, y)` is of this form,
-with `B` a Bilinear layer.
+with `B` the Bilinear layer.
 
-If `y` is not given, it is taken to be equal to `x`, i.e. `B(x) == B(x, x)`
+If the second input `y` is not given, it is taken to be equal to `x`, i.e. `B(x) == B(x, x)`
 
 The two inputs may also be provided as a tuple, `B((x, y)) == B(x, y)`,
 which is accepted as the input to a `Chain`.
+
+If the two input sizes are the same, `in1 == in2`, then you may write `Bilinear(in => out, σ)`.
 
 The initialisation works as for [`Dense`](@ref) layer, with `W = init(out, in1, in2)`.
 By default the bias vector is `zeros(Float32, out)`, option `bias=false` will switch off
@@ -309,7 +315,8 @@ trainable bias. Either of these may be provided explicitly.
 ```jldoctest
 julia> x, y = randn(Float32, 5, 32), randn(Float32, 5, 32);
 
-julia> B = Flux.Bilinear(5, 5, 7);
+julia> B = Flux.Bilinear((5, 5) => 7)
+Bilinear(5 => 7)    # 182 parameters
 
 julia> B(x) |> size  # interactions based on one input
 (7, 32)
@@ -318,15 +325,15 @@ julia> B(x,y) == B((x,y))  # two inputs, may be given as a tuple
 true
 
 julia> sc = SkipConnection(
-                Chain(Dense(5, 20, tanh), Dense(20, 9, tanh)),
-                Flux.Bilinear(9, 5, 3, bias=false),
+                Chain(Dense(5 => 20, tanh), Dense(20, 9, tanh)),
+                Flux.Bilinear((9, 5) => 3, bias=false),
             );  # used as the recombinator, with skip as the second input
 
 julia> sc(x) |> size
 (3, 32)
 
 julia> Flux.Bilinear(rand(4,8,16), false, tanh)  # first dim of weight is the output
-Bilinear(8, 16, 4, tanh, bias=false)
+Bilinear((8, 16) => 4, tanh; bias=false)  # 512 parameters
 ```
 """
 struct Bilinear{F,A,B}
@@ -346,6 +353,9 @@ function Bilinear(in1::Integer, in2::Integer, out::Integer, σ = identity;
                   init = glorot_uniform, bias = true)
   Bilinear(init(out, in1, in2), bias, σ)
 end
+
+Bilinear(((in1, in2), out)::Pair{<:Tuple, <:Integer}, σ = identity; kw...) = Bilinear(in1, in2, out, σ; kw...)
+Bilinear((in12, out)::Pair{<:Integer, <:Integer}, σ = identity; kw...) = Bilinear(in12, in12, out, σ; kw...)
 
 function (a::Bilinear)(x::AbstractMatrix, y::AbstractMatrix)
   W, b, σ = a.weight, a.bias, a.σ
@@ -370,9 +380,13 @@ end
 (a::Bilinear)(x::NTuple{2, AbstractArray}) = a(x[1], x[2])
 
 function Base.show(io::IO, l::Bilinear)
-  print(io, "Bilinear(", size(l.weight, 2), ", ", size(l.weight, 3), ", ", size(l.weight, 1))
+  if size(l.weight, 2) == size(l.weight, 3)
+    print(io, "Bilinear(", size(l.weight, 2), " => ", size(l.weight, 1))
+  else
+    print(io, "Bilinear((", size(l.weight, 2), ", ", size(l.weight, 3), ") => ", size(l.weight, 1))
+  end
   l.σ == identity || print(io, ", ", l.σ)
-  l.bias == Flux.Zeros() && print(io, ", bias=false")
+  l.bias == Flux.Zeros() && print(io, "; bias=false")
   print(io, ")")
 end
 
@@ -388,9 +402,9 @@ If called with multiple inputs, they are `zip`ped with the layers, thus `Paralle
 # Examples
 
 ```jldoctest
-julia> model = Chain(Dense(3, 5),
-                     Parallel(vcat, Dense(5, 4), Chain(Dense(5, 7), Dense(7, 4))),
-                     Dense(8, 17));
+julia> model = Chain(Dense(3 => 5),
+                     Parallel(vcat, Dense(5 => 4), Chain(Dense(5 => 7), Dense(7 => 4))),
+                     Dense(8 => 17));
 
 julia> size(model(rand(3)))
 (17,)
@@ -398,8 +412,8 @@ julia> size(model(rand(3)))
 julia> model = Parallel(+, Dense(10, 2), Dense(5, 2))
 Parallel(
   +,
-  Dense(10, 2),                         # 22 parameters
-  Dense(5, 2),                          # 12 parameters
+  Dense(10 => 2),                       # 22 parameters
+  Dense(5 => 2),                        # 12 parameters
 )                   # Total: 4 arrays, 34 parameters, 392 bytes.
 
 julia> size(model(rand(10), rand(5)))

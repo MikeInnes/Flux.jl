@@ -37,7 +37,7 @@ _show_leaflike(::Tuple{Vararg{<:AbstractArray}}) = true  # e.g. parameters of LS
 _show_leaflike(::Diagonal) = true                        # appears inside LayerNorm
 
 for T in [
-    :Conv, :ConvTranspose, :CrossCor, :DepthwiseConv, :Dense,
+    :Conv, :ConvTranspose, :CrossCor, :DepthwiseConv, :Dense, :Bilinear,
     :BatchNorm, :LayerNorm, :InstanceNorm, :GroupNorm,
   ]
   @eval function Base.show(io::IO, m::MIME"text/plain", x::$T)
