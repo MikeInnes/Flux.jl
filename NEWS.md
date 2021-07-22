@@ -1,6 +1,9 @@
 # Flux Release Notes
 
 ## v0.12.4
+* Implemented [axis option for normalisation functions](https://github.com/FluxML/Flux.jl/issues/1664).
+
+## v0.12.4
 * Implemented an [`Embedding layer`](https://github.com/FluxML/Flux.jl/pull/1516) 
   based on `NNlib.gather` and `NNlib.scatter`.
 
