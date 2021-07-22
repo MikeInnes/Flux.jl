@@ -44,6 +44,10 @@ end
   include("outputsize.jl")
 end
 
+@testset "functor" begin
+  include("functor.jl")
+end
+
 @testset "CUDA" begin
   if Flux.use_cuda[]
     include("cuda/runtests.jl")

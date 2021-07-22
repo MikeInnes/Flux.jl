@@ -53,6 +53,12 @@ function params(m...)
   return ps
 end
 
+@adjoint function params(m...)
+  params_pullback(Δ::Nothing) = nothing
+  params_pullback(Δ) = (println(Δ); error("derivation through `params` not supported yet"))
+  params(m...), params_pullback
+end
+
 function loadparams!(m, xs)
   for (p, x) in zip(params(m), xs)
     size(p) == size(x) ||
